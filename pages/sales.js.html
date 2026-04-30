@@ -1,0 +1,97 @@
+/* ============================================================
+   Market Pro – sales.js (FIXED FINAL)
+   ============================================================ */
+
+import {
+  supabase,
+  ensureUser,
+  dbInsert,
+  dbUpdate,
+  insertLedgerEntries
+} from "../data.js";
+
+import {
+  toast,
+  modal,
+  closeModal
+} from "../ui.js";
+
+const COMMISSION_RATE = 0.07;
+
+window.sellProduct = function(productId, invoiceId){
+
+  modal(`
+    <h3>تسجيل بيع</h3>
+
+    <input id="sell-qty" placeholder="الكمية">
+    <input id="sell-price" placeholder="السعر">
+
+    <button onclick="submitSell('${productId}','${invoiceId}')">
+      تأكيد
+    </button>
+  `);
+};
+
+window.submitSell = async function(productId, invoiceId){
+
+  const qty = parseFloat(document.getElementById("sell-qty").value);
+  const price = parseFloat(document.getElementById("sell-price").value);
+
+  if(!qty || !price){
+    toast("بيانات غير صحيحة","error");
+    return;
+  }
+
+  const total = qty * price;
+
+  try{
+
+    const { data: product } = await supabase
+      .from("invoice_products")
+      .select("*")
+      .eq("id", productId)
+      .single();
+
+    const remaining = (product.qty||0)-(product.sold||0);
+
+    if(qty > remaining){
+      throw new Error("الكمية أكبر من المتاح");
+    }
+
+    const commission = total * COMMISSION_RATE;
+    const supplierShare = total - commission;
+
+    /* ── 1) سجل البيع ── */
+    const sale = await dbInsert("sales",{
+      product_id: productId,
+      invoice_id: invoiceId,
+      qty,
+      price,
+      total
+    });
+
+    /* ── 2) تحديث الكمية ── */
+    await dbUpdate("invoice_products", productId,{
+      sold: (product.sold||0)+qty
+    });
+
+    /* ── 3) Ledger (🔥 FIX هنا) ── */
+    await insertLedgerEntries([
+      { account_type:'treasury', debit:total, credit:0 },
+      { account_type:'supplier', debit:0, credit:supplierShare },
+      { account_type:'commission', debit:0, credit:commission }
+    ],{
+      reference_type:'sale',
+      reference_id: sale.id,
+      description:'بيع عمولة'
+    });
+
+    closeModal();
+    toast("تم البيع ✅","success");
+
+    navigate('sales');
+
+  }catch(err){
+    toast(err.message,"error");
+  }
+};

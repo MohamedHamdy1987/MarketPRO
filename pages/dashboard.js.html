@@ -1,0 +1,88 @@
+/* ============================================================
+   Market Pro – dashboard.js (FINAL – Consignment Accurate)
+   ============================================================ */
+
+import {
+  supabase,
+  ensureUser
+} from "../data.js";
+
+import {
+  formatCurrency
+} from "../ui.js";
+
+/* ─────────────────────────────────────────
+   الداشبورد
+───────────────────────────────────────── */
+export async function renderDashboard(app){
+
+  const user = await ensureUser();
+
+  /* ── 1) ledger ── */
+  const { data: ledger } = await supabase
+    .from("ledger_entries")
+    .select("*")
+    .eq("user_id", user.id);
+
+  /* ── 2) sales ── */
+  const { data: sales } = await supabase
+    .from("sales")
+    .select("total")
+    .eq("user_id", user.id);
+
+  let treasury = 0;
+  let commission = 0;
+  let supplierBalance = 0;
+
+  /* ── ledger calculations ── */
+  (ledger||[]).forEach(e=>{
+
+    if(e.account_type === "treasury"){
+      treasury += Number(e.debit||0);
+      treasury -= Number(e.credit||0);
+    }
+
+    if(e.account_type === "commission"){
+      commission += Number(e.credit||0);
+    }
+
+    if(e.account_type === "supplier"){
+      supplierBalance += Number(e.credit||0);
+      supplierBalance -= Number(e.debit||0);
+    }
+  });
+
+  /* ── total sales ── */
+  const totalSales = (sales||[]).reduce((s,x)=>s+Number(x.total||0),0);
+
+  /* ── UI ── */
+  app.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">📊 لوحة التحكم</div>
+    </div>
+
+    <div class="kpi-grid">
+
+      <div class="kpi-card">
+        <div>💰 رصيد الخزنة</div>
+        <b>${formatCurrency(treasury)}</b>
+      </div>
+
+      <div class="kpi-card">
+        <div>🧾 إجمالي البيع</div>
+        <b>${formatCurrency(totalSales)}</b>
+      </div>
+
+      <div class="kpi-card">
+        <div>🪙 إجمالي العمولة</div>
+        <b>${formatCurrency(commission)}</b>
+      </div>
+
+      <div class="kpi-card">
+        <div>🚚 مستحق الموردين</div>
+        <b>${formatCurrency(supplierBalance)}</b>
+      </div>
+
+    </div>
+  `;
+}

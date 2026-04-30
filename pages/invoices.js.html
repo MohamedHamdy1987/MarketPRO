@@ -1,0 +1,197 @@
+/* ============================================================
+   Market Pro – invoices.js (FINAL – Consignment Logic)
+   ============================================================ */
+
+import {
+  supabase,
+  ensureUser,
+  dbInsert,
+  dbUpdate,
+  dbDelete
+} from "../data.js";
+
+import {
+  toast,
+  inputModal,
+  formatCurrency,
+  formatDate,
+  emptyState
+} from "../ui.js";
+
+/* ─────────────────────────────────────────
+   عرض الفواتير
+───────────────────────────────────────── */
+export async function renderInvoicesPage(app){
+
+  const user = await ensureUser();
+
+  const { data: invoices } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("date",{ ascending:false });
+
+  app.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">📄 الفواتير</div>
+      <div class="page-actions">
+        <button class="btn" onclick="openAddInvoice()">+ فاتورة</button>
+      </div>
+    </div>
+
+    ${
+      !(invoices||[]).length
+      ? emptyState('📄','لا توجد فواتير','')
+      : invoices.map(inv=>`
+        <div class="card" onclick="openInvoice('${inv.id}')">
+          <b>${inv.supplier_name}</b>
+          <div>${formatDate(inv.date)}</div>
+          <div class="badge">${inv.status}</div>
+        </div>
+      `).join('')
+    }
+  `;
+}
+
+/* ─────────────────────────────────────────
+   إضافة فاتورة
+───────────────────────────────────────── */
+window.openAddInvoice = function(){
+
+  inputModal({
+    title:'فاتورة جديدة',
+    fields:[
+      {id:'supplier_name', label:'اسم المورد', required:true}
+    ],
+    onSubmit: async(vals)=>{
+
+      await dbInsert("invoices",{
+        supplier_name: vals.supplier_name,
+        status: "draft",
+        date: new Date().toISOString()
+      });
+
+      toast("تم إنشاء الفاتورة","success");
+      navigate('invoices');
+    }
+  });
+};
+
+/* ─────────────────────────────────────────
+   عرض الفاتورة
+───────────────────────────────────────── */
+window.openInvoice = async function(invoiceId){
+
+  const app = document.getElementById("app");
+
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("id", invoiceId)
+    .single();
+
+  const { data: products } = await supabase
+    .from("invoice_products")
+    .select("*")
+    .eq("invoice_id", invoiceId);
+
+  const total = (products||[]).reduce((s,p)=>s+Number(p.qty||0),0);
+  const sold = (products||[]).reduce((s,p)=>s+Number(p.sold||0),0);
+
+  app.innerHTML = `
+    <button class="btn" onclick="navigate('invoices')">← رجوع</button>
+
+    <div class="page-header">
+      <div class="page-title">🚚 ${invoice.supplier_name}</div>
+      <div class="page-subtitle">
+        الكمية ${total} • مباع ${sold}
+      </div>
+    </div>
+
+    ${
+      invoice.status === "draft"
+      ? `
+      <button class="btn" onclick="confirmInvoice('${invoiceId}')">
+        اعتماد الفاتورة
+      </button>
+      `
+      : `<span class="badge">معتمدة</span>`
+    }
+
+    <div class="card">
+      <div class="card-header">
+        <span>📦 الأصناف</span>
+        ${
+          invoice.status === "draft"
+          ? `<button class="btn btn-sm" onclick="addProduct('${invoiceId}')">+ صنف</button>`
+          : ''
+        }
+      </div>
+
+      ${
+        !(products||[]).length
+        ? "لا توجد أصناف"
+        : products.map(p=>`
+          <div class="row" style="justify-content:space-between;">
+            <span>${p.name}</span>
+            <span>${p.qty} / ${p.sold||0}</span>
+          </div>
+        `).join('')
+      }
+    </div>
+  `;
+};
+
+/* ─────────────────────────────────────────
+   إضافة صنف
+───────────────────────────────────────── */
+window.addProduct = function(invoiceId){
+
+  inputModal({
+    title:'إضافة صنف',
+    fields:[
+      {id:'name', label:'اسم الصنف', required:true},
+      {id:'qty', label:'الكمية', type:'number', required:true}
+    ],
+    onSubmit: async(vals)=>{
+
+      await dbInsert("invoice_products",{
+        invoice_id: invoiceId,
+        name: vals.name,
+        qty: Number(vals.qty),
+        sold: 0
+      });
+
+      toast("تم إضافة الصنف","success");
+      openInvoice(invoiceId);
+    }
+  });
+};
+
+/* ─────────────────────────────────────────
+   اعتماد الفاتورة
+───────────────────────────────────────── */
+window.confirmInvoice = async function(invoiceId){
+
+  try{
+
+    const { data: products } = await supabase
+      .from("invoice_products")
+      .select("*")
+      .eq("invoice_id", invoiceId);
+
+    if(!products.length){
+      throw new Error("لا توجد أصناف");
+    }
+
+    await dbUpdate("invoices", invoiceId,{
+      status: "confirmed"
+    });
+
+    toast("تم اعتماد الفاتورة ✅","success");
+    openInvoice(invoiceId);
+
+  }catch(err){
+    toast(err.message,"error");
+  }
+};
