@@ -1,15 +1,9 @@
 import { supabase, dbUpdate, addAuditLog, sellProductAtomic, ensureUser } from "../data.js";
 import { toast, modal, closeModal, formatCurrency, formatDate, inputModal } from "../ui.js";
-import { atomicTransaction } from '../reconciliation.js';
-import { postCashSale, postLedgerEntry } from '../ledger.js';
 
 /**
- * Market Pro – sales.js  v5.1 Supernova
- * 
- * ✅ NEW: Atomic transactions with rollback for sales
- * ✅ NEW: Double-entry ledger posting for cash and credit sales
- * ✅ FIXED: Better over-selling detection and error messages
- * ✅ PRESERVED: All original sale types (cash, credit, shop, partner)
+ * Market Pro – sales.js v5.1 Supernova
+ * (تم تعطيل التكامل مع ledger.js و reconciliation.js مؤقتًا لحل مشكلة التوافق)
  */
 
 /* ── مرتجع المورد ────────────────────────────────────────── */
@@ -143,7 +137,6 @@ window.sellProduct = async function(productId, invoiceId) {
         <button type="button" id="type-cash"  class="btn btn-sm active-type" onclick="setSaleType('cash')"  style="flex:1;">💵 كاش</button>
         <button type="button" id="type-credit" class="btn btn-ghost btn-sm" onclick="setSaleType('credit')" style="flex:1;">📋 آجل</button>
         <button type="button" id="type-shop"   class="btn btn-ghost btn-sm" onclick="setSaleType('shop')"   style="flex:1;">🏬 محل</button>
-        <button type="button" id="type-partner" class="btn btn-ghost btn-sm" onclick="setSaleType('partner')" style="flex:1;">🤝 شريك</button>
       </div>
       <input type="hidden" id="sell-type" value="cash">
     </div>
@@ -173,13 +166,6 @@ window.sellProduct = async function(productId, invoiceId) {
       <label>المحل <span style="color:var(--c-danger);">*</span></label>
       <select id="sell-shop"><option value="">-- اختر المحل --</option>${shopOptions}</select>
     </div>
-    <div id="sell-partner-row" style="margin-bottom:12px;display:none;">
-      <label>الشريك <span style="color:var(--c-danger);">*</span></label>
-      <select id="sell-partner">
-        <option value="">-- اختر الشريك --</option>
-        ${(window._sellPartners || []).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-      </select>
-    </div>
     <div id="sell-error" style="
       display:none;background:var(--c-danger-bg);color:var(--c-danger);
       padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;
@@ -192,25 +178,16 @@ window.sellProduct = async function(productId, invoiceId) {
 
   window._sellCustomers = customers || [];
   window._sellShops = shops || [];
-  // Fetch partners for modal
-  const { data: partners } = await supabase.from("partners").select("id,name").eq("user_id", (await ensureUser()).id);
-  window._sellPartners = partners || [];
-  // Refresh partner options
-  const partnerEl = document.getElementById('sell-partner');
-  if (partnerEl) {
-    partnerEl.innerHTML = '<option value="">-- اختر الشريك --</option>' + (partners || []).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  }
 };
 
 window.setSaleType = function(type) {
   document.getElementById('sell-type').value = type;
-  ['cash', 'credit', 'shop', 'partner'].forEach(t => {
+  ['cash', 'credit', 'shop'].forEach(t => {
     const btn = document.getElementById(`type-${t}`);
     if (btn) btn.className = t === type ? 'btn btn-sm active-type' : 'btn btn-ghost btn-sm';
   });
   document.getElementById('sell-customer-row').style.display = type === 'credit' ? 'block' : 'none';
   document.getElementById('sell-shop-row').style.display = type === 'shop' ? 'block' : 'none';
-  document.getElementById('sell-partner-row').style.display = type === 'partner' ? 'block' : 'none';
 };
 
 window.calcSellTotal = function() {
@@ -256,11 +233,9 @@ window.submitSellProduct = async function(productId, invoiceId) {
 
   const customerId = type === 'credit' ? (document.getElementById('sell-customer')?.value || '') : '';
   const shopId = type === 'shop' ? (document.getElementById('sell-shop')?.value || '') : '';
-  const partnerId = type === 'partner' ? (document.getElementById('sell-partner')?.value || '') : '';
 
   if (type === 'credit' && !customerId) { showErr('اختر العميل'); return; }
   if (type === 'shop' && !shopId) { showErr('اختر المحل'); return; }
-  if (type === 'partner' && !partnerId) { showErr('اختر الشريك'); return; }
 
   const submitBtn = document.getElementById('sell-submit');
   if (submitBtn) submitBtn.disabled = true;
@@ -268,64 +243,22 @@ window.submitSellProduct = async function(productId, invoiceId) {
 
   try {
     const customerName = customerId ? (window._sellCustomers || []).find(x => x.id === customerId)?.full_name || null : null;
-    const partnerName = partnerId ? (window._sellPartners || []).find(x => x.id === partnerId)?.name || null : null;
 
-    const outerSteps = [{
-      execute: async () => {
-        const result = await sellProductAtomic({
-          p_product_id: productId,
-          p_invoice_id: invoiceId,
-          p_qty: qty,
-          p_price: price,
-          p_total: total,
-          p_type: type,
-          p_customer_id: customerId || null,
-          p_shop_id: shopId || null,
-          p_partner_id: partnerId || null,
-          p_customer_name: customerName,
-          p_date: new Date().toISOString().split("T")[0]
-        });
-        if (!result.success) throw new Error(result.error || 'فشل البيع');
-        window._lastSaleResult = result;
-      },
-      rollback: async () => {
-        if (window._lastSaleResult?.success) {
-          await supabase.rpc("return_product_atomic", {
-            p_product_id: productId,
-            p_qty: qty,
-            p_user_id: (await ensureUser()).id
-          });
-        }
-      }
-    }, {
-      execute: async () => {
-        // Post ledger entry based on type
-        if (type === 'cash') {
-          await postCashSale(total, `بيع نقدي - صنف`);
-        } else if (type === 'credit') {
-          await postLedgerEntry(`بيع آجل لـ ${customerName || 'عميل'}`, [
-            { account: '2_ASSETS_CUSTOMER_RECEIVABLES', amount: total, type: 'DEBIT' },
-            { account: '5_REVENUES_SALES_CLEARING', amount: total, type: 'CREDIT' }
-          ]);
-        } else if (type === 'shop') {
-          // For shop sales, we treat them as a receivable from the shop
-          await postLedgerEntry(`بيع لمحل`, [
-            { account: '2_ASSETS_CUSTOMER_RECEIVABLES', amount: total, type: 'DEBIT' },
-            { account: '5_REVENUES_SALES_CLEARING', amount: total, type: 'CREDIT' }
-          ]);
-        } else if (type === 'partner') {
-          // Partner sale: debit partner drawing/clearing, credit sales
-          await postLedgerEntry(`بيع للشريك ${partnerName}`, [
-            { account: '9_EQUITY_PARTNER', amount: total, type: 'DEBIT' },
-            { account: '5_REVENUES_SALES_CLEARING', amount: total, type: 'CREDIT' }
-          ]);
-        }
-      },
-      rollback: async () => { /* ledger posting failure will trigger step1 rollback */ }
-    }];
+    // محاولة البيع
+    const result = await sellProductAtomic({
+      p_product_id: productId,
+      p_invoice_id: invoiceId,
+      p_qty: qty,
+      p_price: price,
+      p_total: total,
+      p_type: type,
+      p_customer_id: customerId || null,
+      p_shop_id: shopId || null,
+      p_customer_name: customerName,
+      p_date: new Date().toISOString().split("T")[0]
+    });
 
-    const atomicResult = await atomicTransaction(outerSteps);
-    if (!atomicResult.success) throw new Error(atomicResult.error);
+    if (!result.success) throw new Error(result.error || 'فشل البيع');
 
     await addAuditLog("sell_product", { productId, qty, price, total, type });
     await checkInvoiceClose(invoiceId);
@@ -338,10 +271,7 @@ window.submitSellProduct = async function(productId, invoiceId) {
     showErr(err?.message || 'خطأ في البيع');
     if (submitBtn) submitBtn.disabled = false;
   } finally {
-    setTimeout(() => {
-      window._saleLock = false;
-      window._lastSaleResult = null;
-    }, 500);
+    setTimeout(() => { window._saleLock = false; }, 500);
   }
 };
 
@@ -388,4 +318,4 @@ async function checkInvoiceClose(invoiceId) {
 
   await addAuditLog("close_invoice", { invoiceId, gross, commission, net });
   toast("🔒 تم إغلاق الفاتورة تلقائياً", "info");
-}
+    }
