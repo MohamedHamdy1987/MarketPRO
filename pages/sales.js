@@ -1,6 +1,13 @@
 import { supabase, dbUpdate, addAuditLog, sellProductAtomic, ensureUser } from "../data.js";
 import { toast, modal, closeModal, formatCurrency, formatDate, inputModal } from "../ui.js";
 
+/**
+ * Market Pro – sales.js v5.1 FINAL
+ * يدعم البيع (كاش، آجل، محل، شريك، موظف)
+ * يدعم البيع بالوحدة والوزن (العدد للخصم، الوزن للحساب)
+ * يدعم اختيار الخزنة للبيع النقدي
+ */
+
 async function returnProductAtomic(productId, qty) {
   const user = await ensureUser();
   const { error } = await supabase.rpc("return_product_atomic", {
@@ -124,6 +131,8 @@ window.sellProduct = async function(productId, invoiceId) {
     <div id="sell-customer-row" style="margin-bottom:12px;display:none;"><label>العميل <span style="color:var(--c-danger);">*</span></label><select id="sell-customer"><option value="">-- اختر العميل --</option>${custOptions}</select></div>
     <div id="sell-shop-row" style="margin-bottom:12px;display:none;"><label>المحل <span style="color:var(--c-danger);">*</span></label><select id="sell-shop"><option value="">-- اختر المحل --</option>${shopOptions}</select></div>
     <div id="sell-partner-row" style="margin-bottom:12px;display:none;"><label>الشريك / الموظف <span style="color:var(--c-danger);">*</span></label><select id="sell-partner"><option value="">-- اختر --</option>${partnerOptions}</select></div>
+    <!-- اختيار الخزنة للبيع النقدي -->
+    <div id="sell-treasury-row" style="margin-bottom:12px;"><label>الخزنة</label><select id="sell-treasury"><option value="financial_manager">المدير المالي</option><option value="cashier_1">المحاسب 1</option><option value="cashier_2">المحاسب 2</option><option value="cashier_3">المحاسب 3</option></select></div>
     <div id="sell-error" style="display:none;background:var(--c-danger-bg);color:var(--c-danger);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;border:1px solid #fca5a5;"></div>
     <div style="display:flex;gap:8px;flex-direction:row-reverse;">
       <button id="sell-submit" class="btn" style="flex:1;" onclick="submitSellProduct('${productId}','${invoiceId}')">✅ تأكيد البيع</button>
@@ -170,14 +179,13 @@ window.submitSellProduct = async function(productId, invoiceId) {
   const weight = parseFloat(document.getElementById('sell-weight')?.value) || 0;
   const count = parseFloat(document.getElementById('sell-count')?.value) || 0;
   const price = parseFloat(document.getElementById('sell-price')?.value) || 0;
+  const treasuryId = document.getElementById('sell-treasury')?.value || 'financial_manager';
 
-  // استخراج جميع المعرّفات أولاً (قبل أي شيء آخر)
   const customerId = document.getElementById('sell-customer')?.value || '';
   const shopId = document.getElementById('sell-shop')?.value || '';
   const partnerId = document.getElementById('sell-partner')?.value || '';
   const employeeId = document.getElementById('sell-partner')?.value || '';
 
-  // ## المنطق الجوهري للبيع ##
   const qtyToReduce = count > 0 ? count : 1;
   const total = (weight > 0 ? weight : qtyToReduce) * price;
 
@@ -196,19 +204,14 @@ window.submitSellProduct = async function(productId, invoiceId) {
     const customerName = customerId ? (window._sellCustomers || []).find(x => x.id === customerId)?.full_name || null : null;
     const result = await sellProductAtomic({
       p_product_id: productId, p_invoice_id: invoiceId,
-      p_qty: qtyToReduce,
-      p_price: price,
-      p_total: total,
-      p_type: type, 
-      p_customer_id: customerId || null,
-      p_shop_id: shopId || null, 
-      p_partner_id: partnerId || null,
+      p_qty: qtyToReduce, p_price: price, p_total: total,
+      p_type: type, p_customer_id: customerId || null,
+      p_shop_id: shopId || null, p_partner_id: partnerId || null,
       p_employee_id: employeeId || null,
-      p_customer_name: customerName, 
-      p_date: new Date().toISOString().split("T")[0]
+      p_customer_name: customerName, p_date: new Date().toISOString().split("T")[0],
+      p_treasury_id: treasuryId
     });
     if (!result.success) throw new Error(result.error || 'فشل البيع');
-    
     await addAuditLog("sell_product", { productId, qty: qtyToReduce, price, total, type });
     await checkInvoiceClose(invoiceId);
     closeModal();
