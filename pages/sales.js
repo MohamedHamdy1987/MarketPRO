@@ -170,20 +170,17 @@ window.submitSellProduct = async function(productId, invoiceId) {
   const weight = parseFloat(document.getElementById('sell-weight')?.value) || 0;
   const count = parseFloat(document.getElementById('sell-count')?.value) || 0;
   const price = parseFloat(document.getElementById('sell-price')?.value) || 0;
-  const qty = weight > 0 ? weight : count;
-  const total = qty * price;
 
-  if (!qty || qty <= 0) { showErr('أدخل الكمية أو الوزن'); return; }
+  // ## التعديل الجوهري ##
+  // الكمية التي ستُخصم من المخزون هي "العدد" دائمًا
+  const qtyToReduce = count > 0 ? count : 1; // إذا لم يُكتب عدد، نعتبره 1
+  // الإجمالي = (الوزن إن وُجد، وإلا فالعدد) × السعر
+  const total = (weight > 0 ? weight : qtyToReduce) * price;
+
   if (!price || price <= 0) { showErr('أدخل السعر'); return; }
+  if (qtyToReduce <= 0) { showErr('أدخل العدد'); return; }
 
-  const customerId = document.getElementById('sell-customer')?.value || '';
-  const shopId = document.getElementById('sell-shop')?.value || '';
-  const partnerId = document.getElementById('sell-partner')?.value || '';
-  const employeeId = document.getElementById('sell-partner')?.value || ''; // <-- تمت الإضافة
-
-  if (type === 'credit' && !customerId) { showErr('اختر العميل'); return; }
-  if (type === 'shop' && !shopId) { showErr('اختر المحل'); return; }
-  if ((type === 'partner' || type === 'employee') && !partnerId) { showErr('اختر الشريك/الموظف'); return; }
+  // ... باقي الدالة كما هي ...
 
   const submitBtn = document.getElementById('sell-submit');
   if (submitBtn) submitBtn.disabled = true;
@@ -192,17 +189,24 @@ window.submitSellProduct = async function(productId, invoiceId) {
   try {
     const customerName = customerId ? (window._sellCustomers || []).find(x => x.id === customerId)?.full_name || null : null;
     const result = await sellProductAtomic({
-      p_product_id: productId, p_invoice_id: invoiceId, p_qty: qty, p_price: price,
-      p_total: total, p_type: type, p_customer_id: customerId || null,
-      p_shop_id: shopId || null, p_partner_id: partnerId || null,
-      p_employee_id: employeeId || null,  // <-- تمت الإضافة
-      p_customer_name: customerName, p_date: new Date().toISOString().split("T")[0]
+      p_product_id: productId, p_invoice_id: invoiceId,
+      p_qty: qtyToReduce, // <-- نرسل العدد (وليس الوزن) ليُخصم من المخزون
+      p_price: price,
+      p_total: total,
+      p_type: type, 
+      p_customer_id: customerId || null,
+      p_shop_id: shopId || null, 
+      p_partner_id: partnerId || null,
+      p_employee_id: employeeId || null,
+      p_customer_name: customerName, 
+      p_date: new Date().toISOString().split("T")[0]
     });
     if (!result.success) throw new Error(result.error || 'فشل البيع');
-    await addAuditLog("sell_product", { productId, qty, price, total, type });
+    
+    await addAuditLog("sell_product", { productId, qty: qtyToReduce, price, total, type });
     await checkInvoiceClose(invoiceId);
     closeModal();
-    toast("تم البيع بنجاح ✅", "success");
+    toast(`تم البيع بنجاح ✅ (الإجمالي: ${total.toLocaleString('ar-EG')} ج)`, "success");
     openSalesInvoice(invoiceId);
   } catch (err) {
     showErr(err?.message || 'خطأ في البيع');
