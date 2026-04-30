@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Pro – غير متصل</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+font-family:'Cairo',sans-serif;
+background:linear-gradient(135deg,#011a12,#000d09);
+color:#f0fdf4;
+min-height:100dvh;
+display:flex;
+align-items:center;
+justify-content:center;
+text-align:center;
+padding:24px;
+}
+
+.wrap{max-width:360px;width:100%;}
+
+.icon{
+font-size:80px;
+margin-bottom:24px;
+animation:float 3s ease-in-out infinite;
+}
+
+@keyframes float{
+0%,100%{transform:translateY(0)}
+50%{transform:translateY(-14px)}
+}
+
+h1{
+font-size:26px;
+font-weight:800;
+margin-bottom:12px;
+}
+
+p{
+color:#a7f3d0;
+font-size:15px;
+margin-bottom:32px;
+line-height:1.7;
+}
+
+.btn{
+display:inline-block;
+padding:14px 32px;
+background:linear-gradient(135deg,#14b8a6,#0d9488);
+color:#022c22;
+border:none;
+border-radius:50px;
+font-size:16px;
+font-weight:700;
+font-family:'Cairo',sans-serif;
+cursor:pointer;
+transition:all .3s;
+}
+
+.btn:hover{transform:scale(1.04);}
+
+.status{
+margin-top:20px;
+font-size:13px;
+color:#6b7280;
+min-height:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+<div class="icon">📡</div>
+
+<h1>لا يوجد اتصال</h1>
+
+<p>
+يبدو أنك غير متصل بالإنترنت.<br>
+تحقق من الاتصال وحاول مرة أخرى.
+</p>
+
+<button class="btn" onclick="retry()">
+🔄 إعادة المحاولة
+</button>
+
+<div class="status" id="status"></div>
+
+</div>
+
+<script>
+function goBackToApp(){
+window.location.href="./app.html";
+}
+
+function retry(){
+const status=document.getElementById('status');
+status.textContent='جاري فحص الاتصال...';
+
+setTimeout(()=>{
+if(navigator.onLine){
+status.textContent='✅ تم استعادة الاتصال';
+setTimeout(goBackToApp,700);
+}
+else{
+status.textContent='❌ لا يزال غير متصل';
+}
+},800);
+}
+
+/* Auto return when internet comes back */
+window.addEventListener('online',()=>{
+const status=document.getElementById('status');
+status.textContent='✅ تم استعادة الاتصال...';
+setTimeout(goBackToApp,1200);
+});
+
+/* Passive periodic check */
+setInterval(()=>{
+if(navigator.onLine){
+goBackToApp();
+}
+},8000);
+</script>
+
+</body>
+</html>
