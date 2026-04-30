@@ -123,7 +123,7 @@ window.sellProduct = async function(productId, invoiceId) {
     <div id="sell-total-display" style="background:var(--c-success-bg);border:1px solid var(--c-border-2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:15px;font-weight:800;color:var(--c-primary);text-align:center;display:none;">الإجمالي: <span id="sell-total-val">0</span> ج</div>
     <div id="sell-customer-row" style="margin-bottom:12px;display:none;"><label>العميل <span style="color:var(--c-danger);">*</span></label><select id="sell-customer"><option value="">-- اختر العميل --</option>${custOptions}</select></div>
     <div id="sell-shop-row" style="margin-bottom:12px;display:none;"><label>المحل <span style="color:var(--c-danger);">*</span></label><select id="sell-shop"><option value="">-- اختر المحل --</option>${shopOptions}</select></div>
-    <div id="sell-partner-row" style="margin-bottom:12px;display:none;"><label>الشريك <span style="color:var(--c-danger);">*</span></label><select id="sell-partner"><option value="">-- اختر الشريك --</option>${partnerOptions}</select></div>
+    <div id="sell-partner-row" style="margin-bottom:12px;display:none;"><label>الشريك / الموظف <span style="color:var(--c-danger);">*</span></label><select id="sell-partner"><option value="">-- اختر --</option>${partnerOptions}</select></div>
     <div id="sell-error" style="display:none;background:var(--c-danger-bg);color:var(--c-danger);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;border:1px solid #fca5a5;"></div>
     <div style="display:flex;gap:8px;flex-direction:row-reverse;">
       <button id="sell-submit" class="btn" style="flex:1;" onclick="submitSellProduct('${productId}','${invoiceId}')">✅ تأكيد البيع</button>
@@ -137,13 +137,13 @@ window.sellProduct = async function(productId, invoiceId) {
 
 window.setSaleType = function(type) {
   document.getElementById('sell-type').value = type;
-  ['cash','credit','shop','partner'].forEach(t => {
+  ['cash','credit','shop','partner','employee'].forEach(t => {
     const btn = document.getElementById(`type-${t}`);
     if (btn) btn.className = t === type ? 'btn btn-sm active-type' : 'btn btn-ghost btn-sm';
   });
   document.getElementById('sell-customer-row').style.display = type === 'credit' ? 'block' : 'none';
   document.getElementById('sell-shop-row').style.display = type === 'shop' ? 'block' : 'none';
-  document.getElementById('sell-partner-row').style.display = type === 'partner' ? 'block' : 'none';
+  document.getElementById('sell-partner-row').style.display = (type === 'partner' || type === 'employee') ? 'block' : 'none';
 };
 
 window.calcSellTotal = function() {
@@ -179,10 +179,11 @@ window.submitSellProduct = async function(productId, invoiceId) {
   const customerId = document.getElementById('sell-customer')?.value || '';
   const shopId = document.getElementById('sell-shop')?.value || '';
   const partnerId = document.getElementById('sell-partner')?.value || '';
+  const employeeId = document.getElementById('sell-partner')?.value || ''; // <-- تمت الإضافة
 
   if (type === 'credit' && !customerId) { showErr('اختر العميل'); return; }
   if (type === 'shop' && !shopId) { showErr('اختر المحل'); return; }
-  if (type === 'partner' && !partnerId) { showErr('اختر الشريك'); return; }
+  if ((type === 'partner' || type === 'employee') && !partnerId) { showErr('اختر الشريك/الموظف'); return; }
 
   const submitBtn = document.getElementById('sell-submit');
   if (submitBtn) submitBtn.disabled = true;
@@ -194,6 +195,7 @@ window.submitSellProduct = async function(productId, invoiceId) {
       p_product_id: productId, p_invoice_id: invoiceId, p_qty: qty, p_price: price,
       p_total: total, p_type: type, p_customer_id: customerId || null,
       p_shop_id: shopId || null, p_partner_id: partnerId || null,
+      p_employee_id: employeeId || null,  // <-- تمت الإضافة
       p_customer_name: customerName, p_date: new Date().toISOString().split("T")[0]
     });
     if (!result.success) throw new Error(result.error || 'فشل البيع');
@@ -231,4 +233,4 @@ async function checkInvoiceClose(invoiceId) {
   await dbUpdate("invoices", invoiceId, { status: "closed", gross, commission, total_expenses: expenses, net });
   await addAuditLog("close_invoice", { invoiceId, gross, commission, net });
   toast("🔒 تم إغلاق الفاتورة تلقائياً", "info");
-}
+                        }
