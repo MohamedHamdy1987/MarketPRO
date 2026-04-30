@@ -191,4 +191,16 @@
   </script>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+  // اختبار النقرة المباشرة
+  document.addEventListener('DOMContentLoaded', function() {
+    var testBtn = document.createElement('button');
+    testBtn.textContent = '🔴 اختبار النقرة المباشرة';
+    testBtn.style.cssText = 'position:fixed;bottom:80px;left:16px;z-index:9999;padding:12px 20px;background:#dc2626;color:#fff;border:none;border-radius:12px;font-family:Cairo;font-size:14px;font-weight:700;cursor:pointer;';
+    testBtn.onclick = function() {
+      alert('✅ النقرة المباشرة تعمل!');
+    };
+    document.body.appendChild(testBtn);
+  });
+  </script>
 後面會繼續傳送 `app.js`、`data.js` 等檔案。
