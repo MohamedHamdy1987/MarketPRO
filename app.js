@@ -1,61 +1,55 @@
 /**
- * Market Pro – app.js  v5.1 Supernova
- * SPA Router + RBAC Authorization + Module Loader
- * 
- * ✅ NEW: Role-based access control (RBAC)
- * ✅ NEW: Reconciliation page route
- * ✅ FIXED: Hamburger menu now functional
- * ✅ FIXED: Mobile sidebar toggle
+ * Market Pro – app.js  v5.1 Supernova (مع عرض الأخطاء على الشاشة)
  */
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// ─── Supabase (mirrored from data.js for auth guard) ─────────────────────────
-const supabaseUrl = 'https://seadlwxlffbgxtxwhuis.supabase.co';
+// ─── عرض الأخطاء العامة (للتشخيص) ─────────────────────────────
+window.addEventListener('error', (event) => {
+  const errEl = document.createElement('div');
+  errEl.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:12px;z-index:9999;font-size:14px;text-align:center;direction:rtl;';
+  errEl.textContent = '❌ خطأ: ' + (event.message || event.error?.message || 'حدث خطأ غير معروف');
+  document.body.prepend(errEl);
+  setTimeout(() => errEl.remove(), 6000);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const errEl = document.createElement('div');
+  errEl.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:12px;z-index:9999;font-size:14px;text-align:center;direction:rtl;';
+  errEl.textContent = '❌ خطأ في التحميل: ' + (event.reason?.message || 'خطأ غير معروف');
+  document.body.prepend(errEl);
+  setTimeout(() => errEl.remove(), 6000);
+});
+
+const supabaseUrl = 'https://seadlwxlffbgxtxwhuis.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYWRsd3hsZmZiZ3h0eHdodWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjEzNTYsImV4cCI6MjA5MzA5NzM1Nn0._CtO7o-ruSpAq-w7Lri3rdbG4Zin6rI8nzFDsinR6Co';
 
 const _sb = createClient(supabaseUrl, supabaseKey, {
   auth: { storage: window.localStorage, persistSession: true, detectSessionInUrl: true, autoRefreshToken: true }
 });
 
-// ─── Auth Guard ───────────────────────────────────────────────────────────────
 (async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     window.location.href = 'index.html';
     return;
   }
-  
-  // Inject business name into sidebar
   const biz = user.user_metadata?.business_name;
   const bizEl = document.getElementById('business-name');
   if (bizEl && biz) {
     bizEl.textContent = biz;
     bizEl.style.display = 'block';
   }
-  
-  // ✅ NEW: Load employee role for RBAC
   await loadEmployeeRole(user.id);
-  
-  // Boot app
   initApp();
 })();
 
-// ─── Page registry ────────────────────────────────────────────────────────────
 const PAGE_TITLES = {
-  dashboard:      'الرئيسية',
-  invoices:       'الفواتير',
-  sales:          'المبيعات',
-  tarhil:         'الترحيلات',
-  customers:      'العملاء',
-  suppliers:      'الموردين',
-  market_shops:   'محلات السوق',
-  khazna:         'الخزنة',
-  financial:      'المركز المالي',
-  partners:       'الشركاء',
-  employees:      'الموظفين',
-  crates:         'العدايات والبرانيك',
-  reconciliation: 'تسوية الحسابات',  // ✅ NEW
+  dashboard: 'الرئيسية', invoices: 'الفواتير', sales: 'المبيعات',
+  tarhil: 'الترحيلات', customers: 'العملاء', suppliers: 'الموردين',
+  market_shops: 'محلات السوق', khazna: 'الخزنة', financial: 'المركز المالي',
+  partners: 'الشركاء', employees: 'الموظفين', crates: 'العدايات والبرانيك',
+  reconciliation: 'تسوية الحسابات',
 };
 
 async function loadPage(route) {
@@ -63,13 +57,8 @@ async function loadPage(route) {
   const titleEl = document.getElementById('page-title');
   if (!app) return;
 
-  // Skeleton while loading
-  app.innerHTML = `
-    <div class="skeleton skeleton-card"></div>
-    <div class="skeleton skeleton-card"></div>
-    <div class="skeleton skeleton-card"></div>`;
+  app.innerHTML = `<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>`;
   app.className = 'content';
-
   if (titleEl) titleEl.textContent = PAGE_TITLES[route] || route;
 
   try {
@@ -105,7 +94,7 @@ async function loadPage(route) {
         break;
       }
       case 'market_shops': {
-        const { renderShopsPage } = await import('./pages/shops.js');
+        const { renderShopsPage } = await import('./pages/market_shops.js');
         await renderShopsPage(app);
         break;
       }
@@ -134,7 +123,6 @@ async function loadPage(route) {
         await renderCratesPage(app);
         break;
       }
-      // ── NEW in v5.1 ──────────────────────────────────────────────────────
       case 'reconciliation': {
         const { renderReconciliationPage } = await import('./pages/reconciliation_page.js');
         await renderReconciliationPage(app);
@@ -146,67 +134,39 @@ async function loadPage(route) {
     }
   } catch (err) {
     console.error('Page load error:', err);
-    app.innerHTML = `<div class="card" style="color:var(--c-danger);">⚠️ خطأ في تحميل الصفحة: ${err.message}</div>`;
+    // عرض الخطأ على الشاشة أيضاً
+    app.innerHTML = `<div class="card" style="color:var(--c-danger);">⚠️ خطأ في تحميل الصفحة:<br>${err.message}</div>`;
   }
 
-  // Re-trigger fade-in
   app.classList.add('fade-in');
-
-  // Update active nav button
-  document.querySelectorAll('[data-nav]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.nav === route);
-  });
-
-  // Store current route
+  document.querySelectorAll('[data-nav]').forEach(btn => btn.classList.toggle('active', btn.dataset.nav === route));
   window._currentRoute = route;
 }
 
-// ─── Navigate (global) ────────────────────────────────────────────────────────
 window.navigate = function(route) {
   history.pushState({ route }, '', '#' + route);
   loadPage(route);
 };
 
-// ─── Back/Forward ─────────────────────────────────────────────────────────────
 window.addEventListener('popstate', (e) => {
   const route = e.state?.route || 'dashboard';
   loadPage(route);
 });
 
-// ─── ✅ NEW: RBAC System ──────────────────────────────────────────────────────
 async function loadEmployeeRole(userId) {
   try {
-    const { data, error } = await _sb
-      .from('employees')
-      .select('role, active')
-      .eq('user_id', userId)
-      .eq('active', true)
-      .single();
-    
-    if (error || !data) {
-      window._currentUserRole = 'admin'; // default for owner
-      window._employeeActive = false;
-    } else {
-      window._currentUserRole = data.role || 'worker';
-      window._employeeActive = true;
-    }
-  } catch {
-    window._currentUserRole = 'admin';
-    window._employeeActive = false;
-  }
+    const { data, error } = await _sb.from('employees').select('role, active').eq('user_id', userId).eq('active', true).single();
+    if (error || !data) { window._currentUserRole = 'admin'; window._employeeActive = false; }
+    else { window._currentUserRole = data.role || 'worker'; window._employeeActive = true; }
+  } catch { window._currentUserRole = 'admin'; window._employeeActive = false; }
 }
 
-/**
- * Check if current user can access a feature
- * @param {string} feature - 'create', 'edit', 'delete', 'view_sensitive'
- * @returns {boolean}
- */
 window.canAccess = function(feature) {
   const role = window._currentUserRole || 'admin';
   const permissions = {
-    admin:   ['create', 'edit', 'delete', 'view_sensitive', 'manage_employees', 'manage_shops', 'manage_partners'],
-    cashier: ['create', 'view_sensitive'],
-    worker:  [],
+    admin: ['create','edit','delete','view_sensitive','manage_employees','manage_shops','manage_partners'],
+    cashier: ['create','view_sensitive'],
+    worker: [],
   };
   return (permissions[role] || []).includes(feature);
 };
@@ -214,13 +174,10 @@ window.canAccess = function(feature) {
 function applyRBAC() {
   document.querySelectorAll('[data-permission]').forEach(el => {
     const perm = el.dataset.permission;
-    if (perm && !window.canAccess(perm)) {
-      el.style.display = 'none';
-    }
+    if (perm && !window.canAccess(perm)) el.style.display = 'none';
   });
 }
 
-// ─── Nav button delegation ────────────────────────────────────────────────────
 function initApp() {
   document.querySelectorAll('[data-nav]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -231,24 +188,14 @@ function initApp() {
   });
 
   const gs = document.getElementById('global-search');
-  if (gs) {
-    gs.addEventListener('input', (e) => {
-      const q = e.target.value.trim();
-      if (typeof window.filterCustomers === 'function' && window._currentRoute === 'customers') {
-        window.filterCustomers(q);
-      }
-    });
-  }
+  if (gs) gs.addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    if (typeof window.filterCustomers === 'function' && window._currentRoute === 'customers') window.filterCustomers(q);
+  });
 
-  // ✅ FIXED: hamburger button now works
   const hamburger = document.getElementById('hamburger');
-  if (hamburger) {
-    hamburger.addEventListener('click', () => {
-      document.getElementById('sidebar')?.classList.toggle('open');
-    });
-  }
+  if (hamburger) hamburger.addEventListener('click', () => document.getElementById('sidebar')?.classList.toggle('open'));
 
-  // Initial route from hash or default
   const hash = window.location.hash.replace('#', '') || 'dashboard';
   const validRoutes = Object.keys(PAGE_TITLES);
   const startRoute = validRoutes.includes(hash) ? hash : 'dashboard';
@@ -264,9 +211,7 @@ function initApp() {
   window.addEventListener('online', updateNetStatus);
   window.addEventListener('offline', updateNetStatus);
   updateNetStatus();
-  
-  const observer = new MutationObserver(() => {
-    applyRBAC();
-  });
+
+  const observer = new MutationObserver(() => applyRBAC());
   observer.observe(document.getElementById('app'), { childList: true, subtree: true });
 }
