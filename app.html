@@ -68,7 +68,6 @@
   <!-- MAIN -->
   <main class="main">
     <header class="topbar">
-      <!-- ✅ NEW: Hamburger button for mobile -->
       <button id="hamburger" class="icon-btn" title="القائمة" aria-label="فتح القائمة">
         <span style="font-size:18px;">☰</span>
       </button>
@@ -135,7 +134,6 @@
     <button data-nav="khazna"><span class="nav-em">💰</span><span class="nav-lbl">الخزنة</span></button>
   </nav>
 
-  <!-- sync status bar -->
   <div id="sync-bar" style="display:none;position:fixed;bottom:62px;left:0;right:0;background:var(--c-warning-bg);color:var(--c-warning);text-align:center;padding:6px;font-size:12px;font-weight:600;z-index:400;border-top:1px solid #fcd34d;">
     ⏳ جاري المزامنة... <span id="sync-count">0</span> حركات معلقة
   </div>
@@ -191,16 +189,6 @@
   </script>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script>
-  // اختبار النقرة المباشرة
-  document.addEventListener('DOMContentLoaded', function() {
-    var testBtn = document.createElement('button');
-    testBtn.textContent = '🔴 اختبار النقرة المباشرة';
-    testBtn.style.cssText = 'position:fixed;bottom:80px;left:16px;z-index:9999;padding:12px 20px;background:#dc2626;color:#fff;border:none;border-radius:12px;font-family:Cairo;font-size:14px;font-weight:700;cursor:pointer;';
-    testBtn.onclick = function() {
-      alert('✅ النقرة المباشرة تعمل!');
-    };
-    document.body.appendChild(testBtn);
-  });
-  </script>
-後面會繼續傳送 `app.js`、`data.js` 等檔案。
+  <script type="module" src="app.js"></script>
+</body>
+</html>
