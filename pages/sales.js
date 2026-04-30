@@ -171,16 +171,22 @@ window.submitSellProduct = async function(productId, invoiceId) {
   const count = parseFloat(document.getElementById('sell-count')?.value) || 0;
   const price = parseFloat(document.getElementById('sell-price')?.value) || 0;
 
-  // ## التعديل الجوهري ##
-  // الكمية التي ستُخصم من المخزون هي "العدد" دائمًا
-  const qtyToReduce = count > 0 ? count : 1; // إذا لم يُكتب عدد، نعتبره 1
-  // الإجمالي = (الوزن إن وُجد، وإلا فالعدد) × السعر
+  // استخراج جميع المعرّفات أولاً (قبل أي شيء آخر)
+  const customerId = document.getElementById('sell-customer')?.value || '';
+  const shopId = document.getElementById('sell-shop')?.value || '';
+  const partnerId = document.getElementById('sell-partner')?.value || '';
+  const employeeId = document.getElementById('sell-partner')?.value || '';
+
+  // ## المنطق الجوهري للبيع ##
+  const qtyToReduce = count > 0 ? count : 1;
   const total = (weight > 0 ? weight : qtyToReduce) * price;
 
   if (!price || price <= 0) { showErr('أدخل السعر'); return; }
   if (qtyToReduce <= 0) { showErr('أدخل العدد'); return; }
 
-  // ... باقي الدالة كما هي ...
+  if (type === 'credit' && !customerId) { showErr('اختر العميل'); return; }
+  if (type === 'shop' && !shopId) { showErr('اختر المحل'); return; }
+  if ((type === 'partner' || type === 'employee') && !partnerId) { showErr('اختر الشريك/الموظف'); return; }
 
   const submitBtn = document.getElementById('sell-submit');
   if (submitBtn) submitBtn.disabled = true;
@@ -190,7 +196,7 @@ window.submitSellProduct = async function(productId, invoiceId) {
     const customerName = customerId ? (window._sellCustomers || []).find(x => x.id === customerId)?.full_name || null : null;
     const result = await sellProductAtomic({
       p_product_id: productId, p_invoice_id: invoiceId,
-      p_qty: qtyToReduce, // <-- نرسل العدد (وليس الوزن) ليُخصم من المخزون
+      p_qty: qtyToReduce,
       p_price: price,
       p_total: total,
       p_type: type, 
@@ -237,4 +243,4 @@ async function checkInvoiceClose(invoiceId) {
   await dbUpdate("invoices", invoiceId, { status: "closed", gross, commission, total_expenses: expenses, net });
   await addAuditLog("close_invoice", { invoiceId, gross, commission, net });
   toast("🔒 تم إغلاق الفاتورة تلقائياً", "info");
-                        }
+}
