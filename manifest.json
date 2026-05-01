@@ -15,15 +15,15 @@
   "categories": ["business", "finance", "productivity"],
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "icons/icon-192.jepg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jepg",
       "purpose": "any maskable"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "icons/icon-512.jepg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/jepg",
       "purpose": "any maskable"
     }
   ],
