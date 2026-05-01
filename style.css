@@ -691,3 +691,18 @@ input[type="date"] { cursor: pointer; }
   background: var(--c-surface);
   box-shadow: 0 0 0 3px rgba(16,185,129,.12);
 }
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page,
+.container,
+.main,
+.app {
+  width: 100% !important;
+  max-width: 100% !important;
+}
