@@ -3,6 +3,12 @@
  */
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// ✅ منع تشغيل app.js خارج app.html
+const root = document.getElementById('app');
+if (!root) {
+  console.log('Not app page → skip app init');
+  throw new Error('Stop app.js');
+}
 
 /* ───────────────────────── ERROR HANDLER ───────────────────────── */
 
