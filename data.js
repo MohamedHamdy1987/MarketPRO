@@ -247,4 +247,52 @@ export async function getBulkCustomerCrates(customerIds = []) {
 export async function getBusinessName() {
   const user = await getCurrentUser();
   return user?.user_metadata?.business_name || '';
+/* ─────────────────────────────────────────────
+   ATOMIC TRANSACTION (for safe multi-table ops)
+   ───────────────────────────────────────────── */
+export async function atomicTransaction(steps) {
+  const user = await ensureUser();
+
+  for (const step of steps) {
+    try {
+      if (step.type === 'insert') {
+        const payload = { ...step.data, user_id: user.id };
+        const { error } = await supabase.from(step.table).insert(payload);
+        if (error) throw error;
+      } else if (step.type === 'update') {
+        const { error } = await supabase.from(step.table).update(step.data).match(step.match);
+        if (error) throw error;
+      } else if (step.type === 'delete') {
+        const { error } = await supabase.from(step.table).delete().match(step.match);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error(`[atomic] ${step.type} ${step.table}`, err.message);
+      return false;
+    }
+  }
+  return true;
 }
+
+/* ─────────────────────────────────────────────
+   CRATE SUMMARIES (for crates page)
+   ───────────────────────────────────────────── */
+export async function getAllCustomerCrateSummaries() {
+  const user = await ensureUser();
+  const { data } = await supabase
+    .from('customer_crates')
+    .select('*')
+    .eq('user_id', user.id);
+  return data || [];
+}
+
+export async function getAllSupplierCrateSummaries() {
+  const user = await ensureUser();
+  const { data } = await supabase
+    .from('supplier_crates')
+    .select('*')
+    .eq('user_id', user.id);
+  return data || [];
+}
+}
+
