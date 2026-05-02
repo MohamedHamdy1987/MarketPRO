@@ -1,7 +1,39 @@
 /**
  * Market Pro – app.js FINAL v6.0 Production Stable
  */
+window.onerror = function(message, source, lineno, colno, error) {
+  document.body.innerHTML += `
+    <div style="
+      position:fixed;
+      top:0;left:0;right:0;
+      background:#dc2626;
+      color:#fff;
+      padding:10px;
+      font-size:12px;
+      z-index:9999;
+      direction:ltr;
+    ">
+      ERROR: ${message} <br>
+      ${source}:${lineno}
+    </div>
+  `;
+};
 
+window.addEventListener('unhandledrejection', function(e) {
+  document.body.innerHTML += `
+    <div style="
+      position:fixed;
+      top:50px;left:0;right:0;
+      background:#b91c1c;
+      color:#fff;
+      padding:10px;
+      font-size:12px;
+      z-index:9999;
+    ">
+      PROMISE ERROR: ${e.reason}
+    </div>
+  `;
+});
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const root = document.getElementById('app');
 if (!root) return;
