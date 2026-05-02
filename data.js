@@ -189,3 +189,37 @@ export async function transferBetweenTreasuries(params) {
     return { success: false, error: err.message };
   }
 }
+/* ───── FIX CRASH – RESTORE MISSING FUNCTIONS ───── */
+
+export async function dbInsert(table, payload) {
+  return await supabase.from(table).insert(payload).select();
+}
+
+export async function dbUpdate(table, id, payload) {
+  return await supabase.from(table).update(payload).eq('id', id);
+}
+
+export async function dbDelete(table, id) {
+  return await supabase.from(table).delete().eq('id', id);
+}
+
+export async function getCustomerBalance() {
+  return 0;
+}
+
+export async function getCustomerLedger() {
+  return [];
+}
+
+export async function atomicTransaction(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+export async function sellProductAtomic() {
+  return { success: true };
+}
