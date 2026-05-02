@@ -1,37 +1,32 @@
 import {
-  supabase,
-  addAuditLog,
   ensureUser,
-  verifyPIN
+  verifyPIN,
+  getTreasuriesForUser,
+  addTreasuryTransaction,
+  transferBetweenTreasuries
 } from "../data.js";
 
 import {
   toast,
   inputModal,
-  confirmModal,
-  formatCurrency
+  formatCurrency,
+  closeModal
 } from "../ui.js";
 
-/* ───────────────────────────────────────────── */
-/* CONFIG */
-/* ───────────────────────────────────────────── */
+/* ───────────────── CONFIG ───────────────── */
 
-const TREASURIES = [
-  { value: "financial_manager", label: "المدير المالي" },
-  { value: "cashier_1", label: "محاسب 1" },
-  { value: "cashier_2", label: "محاسب 2" },
-  { value: "cashier_3", label: "محاسب 3" }
-];
+function isFinanceManager(t) {
+  return t?.treasury_type === "financial_manager";
+}
 
-const BALANCE_TYPES = [
-  { value: "cash", label: "كاش" },
-  { value: "vodafone", label: "فودافون" },
-  { value: "bank", label: "بنك" }
-];
+function getChannelField(channel) {
+  if (channel === "cash") return "cash_balance";
+  if (channel === "vodafone_cash") return "vodafone_balance";
+  if (channel === "bank") return "bank_balance";
+  return null;
+}
 
-/* ───────────────────────────────────────────── */
-/* SECURITY */
-/* ───────────────────────────────────────────── */
+/* ───────────────── PIN ───────────────── */
 
 async function requirePIN() {
   return new Promise((resolve, reject) => {
@@ -50,190 +45,186 @@ async function requirePIN() {
   });
 }
 
-/* ───────────────────────────────────────────── */
-/* FETCH TREASURIES */
-/* ───────────────────────────────────────────── */
-
-async function getTreasuries(userId) {
-  const { data } = await supabase
-    .from("treasury_accounts")
-    .select("*")
-    .eq("user_id", userId);
-
-  return data || [];
-}
-
-/* ───────────────────────────────────────────── */
-/* MAIN PAGE */
-/* ───────────────────────────────────────────── */
+/* ───────────────── PAGE ───────────────── */
 
 export async function renderKhaznaPage(app) {
   const user = await ensureUser();
-  const treasuries = await getTreasuries(user.id);
+  const treasuries = await getTreasuriesForUser(user.id);
 
   app.innerHTML = `
     <div class="page-header">
       <div class="page-title">💰 الخزنة</div>
       <div class="page-actions">
-        <button class="btn" onclick="openAddMoney()">➕ إضافة</button>
-        <button class="btn btn-warning" onclick="openWithdraw()">➖ سحب</button>
-        <button class="btn btn-ghost" onclick="openTransfer()">🔄 تحويل</button>
+        <button class="btn" onclick="khazna_income()">➕ تحصيل</button>
+        <button class="btn btn-warning" onclick="khazna_expense()">➖ مصروف</button>
+        <button class="btn btn-ghost" onclick="khazna_transfer()">🔄 تحويل</button>
       </div>
     </div>
 
-    <div class="treasury-grid">
-      ${treasuries.map(t => `
-        <div class="card">
-          <div style="font-weight:700">${t.name}</div>
-          <div style="margin-top:8px;">💵 ${formatCurrency(t.cash_balance)}</div>
-          <div>📱 ${formatCurrency(t.vodafone_balance)}</div>
-          <div>🏦 ${formatCurrency(t.bank_balance || 0)}</div>
-        </div>
-      `).join("")}
+    <div class="grid-2">
+      ${treasuries.map(t => {
+        const isFM = isFinanceManager(t);
+        return `
+          <div class="card">
+            <div style="font-weight:700;margin-bottom:10px;">
+              ${t.name || t.treasury_type}
+            </div>
+
+            <div>💵 نقدي: ${formatCurrency(t.cash_balance)}</div>
+            <div>📱 فودافون: ${formatCurrency(t.vodafone_balance)}</div>
+            ${isFM ? `<div>🏦 بنك: ${formatCurrency(t.bank_balance || 0)}</div>` : ""}
+          </div>
+        `;
+      }).join("")}
     </div>
   `;
 }
 
-/* ───────────────────────────────────────────── */
-/* ADD MONEY */
-/* ───────────────────────────────────────────── */
+/* ───────────────── INCOME ───────────────── */
 
-window.openAddMoney = function () {
+window.khazna_income = async function () {
+  const user = await ensureUser();
+  const treasuries = await getTreasuriesForUser(user.id);
+
   inputModal({
     title: "➕ إضافة رصيد",
     fields: [
-      { id: "amount", label: "المبلغ", type: "number", required: true },
-      { id: "type", label: "نوع الرصيد", type: "select", options: BALANCE_TYPES },
-      { id: "treasury", label: "الخزنة", type: "select", options: TREASURIES }
+      { id: "treasury_id", label: "الخزنة", type: "select", options: treasuries.map(t => ({ value: t.id, label: t.name || t.treasury_type })), required: true },
+      { id: "channel", label: "القناة", type: "select", options: [
+        { value: "cash", label: "نقدي" },
+        { value: "vodafone_cash", label: "فودافون" },
+        { value: "bank", label: "بنك" }
+      ], required: true },
+      { id: "amount", label: "المبلغ", type: "number", required: true }
     ],
-    submitLabel: "إضافة",
     onSubmit: async (vals) => {
+
       if (vals.amount <= 0) throw new Error("أدخل مبلغ صحيح");
 
+      const t = treasuries.find(x => x.id === vals.treasury_id);
+      if (!t) throw new Error("الخزنة غير موجودة");
+
+      if (vals.channel === "bank" && !isFinanceManager(t)) {
+        throw new Error("البنك للمدير فقط");
+      }
+
       await requirePIN();
-      const user = await ensureUser();
 
-      const { data: t } = await supabase
-        .from("treasury_accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("treasury_type", vals.treasury)
-        .single();
+      const res = await addTreasuryTransaction({
+        treasury_id: vals.treasury_id,
+        type: "income",
+        channel: vals.channel,
+        amount: vals.amount
+      });
 
-      const field = vals.type + "_balance";
+      if (!res.success) throw new Error(res.error || "فشل العملية");
 
-      await supabase.from("treasury_accounts").update({
-        [field]: Number(t[field] || 0) + Number(vals.amount)
-      }).eq("id", t.id);
-
-      await addAuditLog("khazna_add", vals);
-
-      toast("تمت الإضافة ✅", "success");
+      toast("تمت الإضافة ✅");
       closeModal();
       navigate("khazna");
     }
   });
 };
 
-/* ───────────────────────────────────────────── */
-/* WITHDRAW */
-/* ───────────────────────────────────────────── */
+/* ───────────────── EXPENSE ───────────────── */
 
-window.openWithdraw = function () {
+window.khazna_expense = async function () {
+  const user = await ensureUser();
+  const treasuries = await getTreasuriesForUser(user.id);
+
   inputModal({
     title: "➖ سحب",
     fields: [
-      { id: "amount", label: "المبلغ", type: "number", required: true },
-      { id: "type", label: "نوع الرصيد", type: "select", options: BALANCE_TYPES },
-      { id: "treasury", label: "الخزنة", type: "select", options: TREASURIES }
+      { id: "treasury_id", label: "الخزنة", type: "select", options: treasuries.map(t => ({ value: t.id, label: t.name || t.treasury_type })), required: true },
+      { id: "channel", label: "القناة", type: "select", options: [
+        { value: "cash", label: "نقدي" },
+        { value: "vodafone_cash", label: "فودافون" },
+        { value: "bank", label: "بنك" }
+      ], required: true },
+      { id: "amount", label: "المبلغ", type: "number", required: true }
     ],
-    submitLabel: "سحب",
     onSubmit: async (vals) => {
-      if (vals.amount <= 0) throw new Error("أدخل مبلغ صحيح");
 
-      await requirePIN();
-      const user = await ensureUser();
+      const t = treasuries.find(x => x.id === vals.treasury_id);
+      if (!t) throw new Error("الخزنة غير موجودة");
 
-      const { data: t } = await supabase
-        .from("treasury_accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("treasury_type", vals.treasury)
-        .single();
-
-      const field = vals.type + "_balance";
-
-      if (Number(t[field]) < vals.amount) {
+      const field = getChannelField(vals.channel);
+      if (Number(t[field] || 0) < vals.amount) {
         throw new Error("رصيد غير كافي");
       }
 
-      await supabase.from("treasury_accounts").update({
-        [field]: Number(t[field]) - Number(vals.amount)
-      }).eq("id", t.id);
+      if (vals.channel === "bank" && !isFinanceManager(t)) {
+        throw new Error("البنك للمدير فقط");
+      }
 
-      await addAuditLog("khazna_withdraw", vals);
+      await requirePIN();
 
-      toast("تم السحب ✅", "success");
+      const res = await addTreasuryTransaction({
+        treasury_id: vals.treasury_id,
+        type: "expense",
+        channel: vals.channel,
+        amount: vals.amount
+      });
+
+      if (!res.success) throw new Error(res.error || "فشل العملية");
+
+      toast("تم السحب ✅");
       closeModal();
       navigate("khazna");
     }
   });
 };
 
-/* ───────────────────────────────────────────── */
-/* TRANSFER (SAFE) */
-/* ───────────────────────────────────────────── */
+/* ───────────────── TRANSFER ───────────────── */
 
-window.openTransfer = function () {
+window.khazna_transfer = async function () {
+  const user = await ensureUser();
+  const treasuries = await getTreasuriesForUser(user.id);
+
   inputModal({
     title: "🔄 تحويل",
     fields: [
-      { id: "amount", label: "المبلغ", type: "number", required: true },
-      { id: "type", label: "نوع الرصيد", type: "select", options: BALANCE_TYPES },
-      { id: "from", label: "من خزنة", type: "select", options: TREASURIES },
-      { id: "to", label: "إلى خزنة", type: "select", options: TREASURIES }
+      { id: "from_id", label: "من", type: "select", options: treasuries.map(t => ({ value: t.id, label: t.name || t.treasury_type })), required: true },
+      { id: "to_id", label: "إلى", type: "select", options: treasuries.map(t => ({ value: t.id, label: t.name || t.treasury_type })), required: true },
+      { id: "channel", label: "القناة", type: "select", options: [
+        { value: "cash", label: "نقدي" },
+        { value: "vodafone_cash", label: "فودافون" },
+        { value: "bank", label: "بنك" }
+      ], required: true },
+      { id: "amount", label: "المبلغ", type: "number", required: true }
     ],
-    submitLabel: "تحويل",
     onSubmit: async (vals) => {
 
-      if (vals.from === vals.to) throw new Error("لا يمكن التحويل لنفس الخزنة");
-      if (vals.amount <= 0) throw new Error("أدخل مبلغ صحيح");
+      if (vals.from_id === vals.to_id) {
+        throw new Error("لا يمكن التحويل لنفس الخزنة");
+      }
 
-      await requirePIN();
-      const user = await ensureUser();
+      const from = treasuries.find(t => t.id === vals.from_id);
+      const to = treasuries.find(t => t.id === vals.to_id);
 
-      const { data: from } = await supabase
-        .from("treasury_accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("treasury_type", vals.from)
-        .single();
+      if (!from || !to) throw new Error("خزنة غير موجودة");
 
-      const { data: to } = await supabase
-        .from("treasury_accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("treasury_type", vals.to)
-        .single();
+      if (vals.channel === "bank" && !isFinanceManager(from)) {
+        throw new Error("البنك للمدير فقط");
+      }
 
-      const field = vals.type + "_balance";
-
-      if (Number(from[field]) < vals.amount) {
+      const field = getChannelField(vals.channel);
+      if (Number(from[field] || 0) < vals.amount) {
         throw new Error("رصيد غير كافي");
       }
 
-      /* SAFE UPDATE */
-      await supabase.from("treasury_accounts")
-        .update({ [field]: Number(from[field]) - Number(vals.amount) })
-        .eq("id", from.id);
+      await requirePIN();
 
-      await supabase.from("treasury_accounts")
-        .update({ [field]: Number(to[field]) + Number(vals.amount) })
-        .eq("id", to.id);
+      const res = await transferBetweenTreasuries({
+        from_id: vals.from_id,
+        to_id: vals.to_id,
+        channel: vals.channel,
+        amount: vals.amount
+      });
 
-      await addAuditLog("khazna_transfer", vals);
+      if (!res.success) throw new Error(res.error || "فشل التحويل");
 
-      toast("تم التحويل ✅", "success");
+      toast("تم التحويل ✅");
       closeModal();
       navigate("khazna");
     }
