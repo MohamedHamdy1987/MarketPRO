@@ -706,3 +706,34 @@ body {
   width: 100% !important;
   max-width: 100% !important;
 }
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  display: block !important;
+}
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  display: block !important;
+}
+
+#app {
+  width: 100vw !important;
+  max-width: 100vw !important;
+}
+
+* {
+  box-sizing: border-box;
+}
