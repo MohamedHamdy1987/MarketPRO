@@ -34,7 +34,6 @@ const PAGE_MAP = {
 
 /* ── NAVIGATION ───────────────────────── */
 window.navigate = function(route) {
-  alert('navigate called: ' + route); // ← اختبار
   if (!PAGE_MAP[route]) return;
   const app = document.getElementById('app');
   const titleEl = document.getElementById('page-title');
@@ -56,16 +55,20 @@ window.navigate = function(route) {
 
 /* ── INIT ─────────────────────────────── */
 (async () => {
-  const user = await ensureUser();
-  if (!user) { window.location.href = 'index.html'; return; }
+  try {
+    const user = await ensureUser();
+    if (!user) { window.location.href = 'index.html'; return; }
 
-  // ربط الأزرار
-  document.querySelectorAll('[data-nav]').forEach(btn => {
-    btn.onclick = () => {
-      navigate(btn.dataset.nav);
-      document.getElementById('sidebar')?.classList.remove('open');
-    };
-  });
+    // ربط الأزرار
+    document.querySelectorAll('[data-nav]').forEach(btn => {
+      btn.onclick = () => {
+        navigate(btn.dataset.nav);
+        document.getElementById('sidebar')?.classList.remove('open');
+      };
+    });
 
-  navigate('dashboard');
+    navigate('dashboard');
+  } catch (err) {
+    document.body.innerHTML = `<h1 style="color:red;text-align:center;margin-top:40px;">خطأ: ${err.message}</h1>`;
+  }
 })();
