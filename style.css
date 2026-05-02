@@ -698,11 +698,3 @@ input[type="date"] { cursor: pointer; }
 body {
   margin: 0;
 }
-
-.page,
-.container,
-.main,
-.app {
-  width: 100% !important;
-  max-width: 100% !important;
-}
