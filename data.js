@@ -88,6 +88,18 @@ export async function addAuditLog(action, details = {}) {
   } catch (err) { console.error('[audit]', err.message); }
 }
 
+/* ── PIN SYSTEM (LOCAL SAFE VERSION) ───────────────────────────── */
+export async function verifyPIN(pin) {
+  try {
+    const savedPin = localStorage.getItem("app_pin") || "1234";
+    return String(pin) === String(savedPin);
+  } catch (e) { console.error("[verifyPIN]:", e); return false; }
+}
+
+export function setLocalPIN(pin) {
+  try { localStorage.setItem("app_pin", String(pin)); } catch (e) { console.error("[setLocalPIN]:", e); }
+}
+
 /* ── CRATES ──────────────────────────── */
 export async function getBulkCustomerCrates(customerIds = []) {
   const user = await getCurrentUser();
