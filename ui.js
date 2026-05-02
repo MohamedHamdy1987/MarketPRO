@@ -4,7 +4,7 @@
    + PIN system (requirePIN)
    ============================================================ */
 
-import { verifyPIN } from "./data.js";
+import { verifyPIN } from './data.js';  // ✅ المسار الصحيح
 
 /* ── Toast ───────────────────────────────────────────────── */
 export function toast(msg, type = 'success', duration = 3000) {
