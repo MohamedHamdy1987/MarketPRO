@@ -1,9 +1,8 @@
 // تحميل الأدوات الأساسية أولاً
-let ensureUser, supabase;
+let ensureUser;
 try {
   const dataModule = await import('./data.js');
   ensureUser = dataModule.ensureUser;
-  supabase = dataModule.supabase;
 } catch (e) {
   alert('فشل تحميل البيانات الأساسية: ' + e.message);
   throw e;
@@ -14,6 +13,7 @@ try {
   try {
     const user = await ensureUser();
     if (!user) {
+      // ✅ توجيه تلقائي إلى صفحة تسجيل الدخول
       window.location.href = 'index.html';
       return;
     }
@@ -40,7 +40,8 @@ try {
     updateNetStatus();
 
   } catch (err) {
-    document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;color:red;">خطأ: ' + err.message + '</h1>';
+    // أي خطأ آخر نوجه إلى تسجيل الدخول أيضاً
+    window.location.href = 'index.html';
   }
 })();
 
@@ -57,7 +58,7 @@ const PAGE_MAP = {
   financial:   './pages/financial.js',
   partners:    './pages/partners.js',
   employees:   './pages/employees.js',
-  crates:      './pages/cartes.js',  // اسم ملفك الفعلي
+  crates:      './pages/cartes.js',
   reconciliation: './pages/reconciliation_page.js',
   audit:       './pages/audit.js'
 };
@@ -71,19 +72,15 @@ const PAGE_TITLES = {
   reconciliation: 'تسوية الحسابات', audit: 'سجل العمليات'
 };
 
-// دالة الانتقال بين الصفحات (آمنة تماماً)
+// دالة الانتقال بين الصفحات
 window.navigate = async function(route) {
   const app = document.getElementById('app');
   const title = document.getElementById('page-title');
   if (!app) return;
 
-  // تحديث العنوان
   if (title) title.textContent = PAGE_TITLES[route] || route;
-
-  // عرض هيكل تحميل مؤقت
   app.innerHTML = '<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>';
 
-  // محاولة تحميل الصفحة المطلوبة
   const modulePath = PAGE_MAP[route];
   if (!modulePath) {
     app.innerHTML = '<div class="card">الصفحة غير موجودة</div>';
@@ -92,11 +89,8 @@ window.navigate = async function(route) {
 
   try {
     const module = await import(modulePath);
-    // كل صفحة تصدّر دالة باسم معين، نبحث عن أول دالة
     const renderFunc = Object.values(module).find(v => typeof v === 'function');
     if (!renderFunc) throw new Error('لم يتم العثور على دالة التصيير');
-    
-    // استدعاء الدالة وتمرير عنصر app
     await renderFunc(app);
   } catch (error) {
     console.error('فشل تحميل الصفحة:', route, error);
