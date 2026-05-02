@@ -1,11 +1,11 @@
 /**
- * Market Pro – app.js FINAL v6.0 Production Stable
+ * Market Pro – app.js FINAL v6.0 (FIXED)
  */
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { supabase, ensureUser } from './data.js';  // ✅ تم تصحيح المسار
+import { toast, inputModal, confirmModal, formatCurrency, formatDate, emptyState } from './ui.js'; // ✅
 
 /* ───────────────────────── ERROR HANDLER ───────────────────────── */
-
 function showError(msg) {
   const el = document.createElement('div');
   el.style.cssText = `
@@ -28,26 +28,10 @@ window.addEventListener('unhandledrejection', (e) => {
   showError('❌ ' + (e.reason?.message || 'خطأ في التنفيذ'));
 });
 
-/* ───────────────────────── SUPABASE CLIENT (TEMP AUTH ONLY) ───────────────────────── */
-
-const supabaseUrl = 'https://seadlwxlffbgxtxwhuis.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYWRsd3hsZmZiZ3h0eHdodWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjEzNTYsImV4cCI6MjA5MzA5NzM1Nn0._CtO7o-ruSpAq-w7Lri3rdbG4Zin6rI8nzFDsinR6Co'; // نفس الموجود في data.js
-
-const _sb = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    storage: window.localStorage,
-    persistSession: true,
-    detectSessionInUrl: true,
-    autoRefreshToken: true
-  }
-});
-
 /* ───────────────────────── INIT FLOW ───────────────────────── */
-
 (async () => {
   try {
-    const { data: { user } } = await _sb.auth.getUser();
-
+    const user = await ensureUser();
     if (!user) {
       window.location.href = 'index.html';
       return;
@@ -55,8 +39,7 @@ const _sb = createClient(supabaseUrl, supabaseKey, {
 
     setBusinessName(user);
     await loadEmployeeRole(user.id);
-    await checkSubscription(user.id); // ✅ أهم إضافة
-
+    await checkSubscription(user.id);
     initApp();
 
   } catch (err) {
@@ -65,10 +48,9 @@ const _sb = createClient(supabaseUrl, supabaseKey, {
 })();
 
 /* ───────────────────────── SUBSCRIPTION CHECK ───────────────────────── */
-
 async function checkSubscription(userId) {
   try {
-    const { data } = await _sb
+    const { data } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', userId)
@@ -77,7 +59,6 @@ async function checkSubscription(userId) {
     if (!data) return;
 
     const now = new Date();
-
     if (
       data.status === 'expired' ||
       (data.subscription_ends_at && new Date(data.subscription_ends_at) < now)
@@ -90,18 +71,15 @@ async function checkSubscription(userId) {
       `;
       throw new Error('SUB_EXPIRED');
     }
-
   } catch (e) {
     console.warn('[subscription]', e.message);
   }
 }
 
 /* ───────────────────────── BUSINESS NAME ───────────────────────── */
-
 function setBusinessName(user) {
   const biz = user.user_metadata?.business_name;
   const el = document.getElementById('business-name');
-
   if (el && biz) {
     el.textContent = biz;
     el.style.display = 'block';
@@ -109,7 +87,6 @@ function setBusinessName(user) {
 }
 
 /* ───────────────────────── ROUTING ───────────────────────── */
-
 const PAGE_TITLES = {
   dashboard: 'الرئيسية',
   invoices: 'الفواتير',
@@ -127,63 +104,49 @@ const PAGE_TITLES = {
 };
 
 async function loadPage(route) {
-  if (window._currentRoute === route) return; // ✅ يمنع reload
-
+  if (window._currentRoute === route) return;
   const app = document.getElementById('app');
   const titleEl = document.getElementById('page-title');
-
   if (!app) return;
 
   app.innerHTML = `
     <div class="skeleton skeleton-card"></div>
     <div class="skeleton skeleton-card"></div>
   `;
-
   if (titleEl) titleEl.textContent = PAGE_TITLES[route] || route;
 
   try {
     switch (route) {
-
       case 'dashboard':
         (await import('./pages/dashboard.js')).renderDashboard(app);
         break;
-
       case 'invoices':
         (await import('./pages/invoices.js')).renderInvoicesPage(app);
         break;
-
       case 'sales':
         (await import('./pages/sales.js')).renderSalesPage(app);
         break;
-
       case 'tarhil':
         (await import('./pages/tarhil.js')).renderTarhilPage(app);
         break;
-
       case 'customers':
         (await import('./pages/customers.js')).renderCustomersPage(app);
         break;
-
       case 'suppliers':
         (await import('./pages/suppliers.js')).renderSuppliersPage(app);
         break;
-
       case 'market_shops':
         (await import('./pages/market_shops.js')).renderShopsPage(app);
         break;
-
       case 'khazna':
         (await import('./pages/khazna.js')).renderKhaznaPage(app);
         break;
-
       case 'financial':
         (await import('./pages/financial.js')).renderFinancialPage(app);
         break;
-
       case 'partners':
         (await import('./pages/partners.js')).renderPartnersPage(app);
         break;
-
       case 'employees':
         (await import('./pages/employees.js')).renderEmployeesPage(app);
         break;
@@ -192,15 +155,12 @@ async function loadPage(route) {
         await renderAuditPage(app);
         break;
       }
-
       case 'crates':
-        (await import('./pages/crates.js')).renderCratesPage(app);
+        (await import('./pages/cartes.js')).renderCratesPage(app); // ✅ تم تغيير الاسم هنا أيضاً
         break;
-
       case 'reconciliation':
         (await import('./pages/reconciliation_page.js')).renderReconciliationPage(app);
         break;
-
       default:
         app.innerHTML = `
           <div class="empty-state">
@@ -208,7 +168,6 @@ async function loadPage(route) {
             <div class="empty-title">الصفحة غير موجودة</div>
           </div>`;
     }
-
   } catch (err) {
     console.error('[Page Error]', err);
     app.innerHTML = `
@@ -218,17 +177,14 @@ async function loadPage(route) {
   }
 
   app.classList.add('fade-in');
-
   document.querySelectorAll('[data-nav]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.nav === route);
   });
-
   window._currentRoute = route;
   applyRBAC();
 }
 
 /* ───────────────────────── NAVIGATION ───────────────────────── */
-
 window.navigate = function(route) {
   if (window._currentRoute === route) return;
   history.pushState({ route }, '', '#' + route);
@@ -240,19 +196,16 @@ window.addEventListener('popstate', (e) => {
 });
 
 /* ───────────────────────── ROLE ───────────────────────── */
-
 async function loadEmployeeRole(userId) {
   try {
-    const { data } = await _sb
+    const { data } = await supabase
       .from('employees')
       .select('role, active')
       .eq('user_id', userId)
       .eq('active', true)
       .single();
-
     window._currentUserRole = data?.role || 'admin';
     window._employeeActive = !!data;
-
   } catch {
     window._currentUserRole = 'admin';
     window._employeeActive = false;
@@ -269,7 +222,6 @@ window.canAccess = function(feature) {
 };
 
 /* ───────────────────────── RBAC ───────────────────────── */
-
 function applyRBAC() {
   document.querySelectorAll('[data-permission]').forEach(el => {
     if (!window.canAccess(el.dataset.permission)) {
@@ -279,7 +231,6 @@ function applyRBAC() {
 }
 
 /* ───────────────────────── INIT APP ───────────────────────── */
-
 function initApp() {
   document.querySelectorAll('[data-nav]').forEach(btn => {
     btn.onclick = () => {
@@ -292,7 +243,6 @@ function initApp() {
   const hash = window.location.hash.replace('#', '') || 'dashboard';
   const validRoutes = Object.keys(PAGE_TITLES);
   const startRoute = validRoutes.includes(hash) ? hash : 'dashboard';
-
   history.replaceState({ route: startRoute }, '', '#' + startRoute);
   loadPage(startRoute);
 
@@ -302,7 +252,6 @@ function initApp() {
     if (!el) return;
     el.textContent = navigator.onLine ? '🟢' : '🔴';
   }
-
   window.addEventListener('online', updateNetStatus);
   window.addEventListener('offline', updateNetStatus);
   updateNetStatus();
@@ -310,4 +259,4 @@ function initApp() {
   /* RBAC watcher */
   const observer = new MutationObserver(() => applyRBAC());
   observer.observe(document.getElementById('app'), { childList: true, subtree: true });
-}
+      }
