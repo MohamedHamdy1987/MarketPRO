@@ -1,262 +1,74 @@
-/**
- * Market Pro – app.js FINAL v6.0 (FIXED)
- */
+import { supabase, ensureUser } from './data.js';
 
-import { supabase, ensureUser } from './data.js';  // ✅ تم تصحيح المسار
-import { toast, inputModal, confirmModal, formatCurrency, formatDate, emptyState } from './ui.js'; // ✅
-
-/* ───────────────────────── ERROR HANDLER ───────────────────────── */
-function showError(msg) {
-  const el = document.createElement('div');
-  el.style.cssText = `
-    position:fixed;top:0;left:0;right:0;
-    background:#dc2626;color:#fff;
-    padding:10px;z-index:9999;
-    font-size:13px;text-align:center;
-    direction:rtl;
-  `;
-  el.textContent = msg;
-  document.body.prepend(el);
-  setTimeout(() => el.remove(), 5000);
-}
-
-window.addEventListener('error', (e) => {
-  showError('❌ ' + (e.message || 'خطأ غير معروف'));
-});
-
-window.addEventListener('unhandledrejection', (e) => {
-  showError('❌ ' + (e.reason?.message || 'خطأ في التنفيذ'));
-});
-
-/* ───────────────────────── INIT FLOW ───────────────────────── */
+/* ── تهيئة التطبيق ──────────────────────── */
 (async () => {
   try {
     const user = await ensureUser();
-    if (!user) {
-      window.location.href = 'index.html';
-      return;
-    }
+    if (!user) { window.location.href = 'index.html'; return; }
 
-    setBusinessName(user);
-    await loadEmployeeRole(user.id);
-    await checkSubscription(user.id);
-    initApp();
+    // تجهيز القائمة
+    document.querySelectorAll('[data-nav]').forEach(btn => {
+      btn.onclick = () => {
+        const route = btn.dataset.nav;
+        navigate(route);
+        document.getElementById('sidebar')?.classList.remove('open');
+      };
+    });
+
+    // فتح الصفحة الرئيسية
+    navigate('dashboard');
 
   } catch (err) {
-    showError(err.message);
+    alert('خطأ: ' + err.message);
   }
 })();
 
-/* ───────────────────────── SUBSCRIPTION CHECK ───────────────────────── */
-async function checkSubscription(userId) {
-  try {
-    const { data } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (!data) return;
-
-    const now = new Date();
-    if (
-      data.status === 'expired' ||
-      (data.subscription_ends_at && new Date(data.subscription_ends_at) < now)
-    ) {
-      document.body.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;">
-          <h2>🚫 الاشتراك منتهي</h2>
-          <p>يرجى التجديد للمتابعة</p>
-        </div>
-      `;
-      throw new Error('SUB_EXPIRED');
-    }
-  } catch (e) {
-    console.warn('[subscription]', e.message);
-  }
-}
-
-/* ───────────────────────── BUSINESS NAME ───────────────────────── */
-function setBusinessName(user) {
-  const biz = user.user_metadata?.business_name;
-  const el = document.getElementById('business-name');
-  if (el && biz) {
-    el.textContent = biz;
-    el.style.display = 'block';
-  }
-}
-
-/* ───────────────────────── ROUTING ───────────────────────── */
-const PAGE_TITLES = {
-  dashboard: 'الرئيسية',
-  invoices: 'الفواتير',
-  sales: 'المبيعات',
-  tarhil: 'الترحيلات',
-  customers: 'العملاء',
-  suppliers: 'الموردين',
-  market_shops: 'محلات السوق',
-  khazna: 'الخزنة',
-  financial: 'المركز المالي',
-  partners: 'الشركاء',
-  employees: 'الموظفين',
-  crates: 'العدايات والبرانيك',
-  reconciliation: 'تسوية الحسابات',
-};
-
-async function loadPage(route) {
-  if (window._currentRoute === route) return;
+/* ── Navigation ────────────────────────── */
+window.navigate = function(route) {
   const app = document.getElementById('app');
-  const titleEl = document.getElementById('page-title');
+  const title = document.getElementById('page-title');
   if (!app) return;
 
-  app.innerHTML = `
-    <div class="skeleton skeleton-card"></div>
-    <div class="skeleton skeleton-card"></div>
-  `;
-  if (titleEl) titleEl.textContent = PAGE_TITLES[route] || route;
-
-  try {
-    switch (route) {
-      case 'dashboard':
-        (await import('./pages/dashboard.js')).renderDashboard(app);
-        break;
-      case 'invoices':
-        (await import('./pages/invoices.js')).renderInvoicesPage(app);
-        break;
-      case 'sales':
-        (await import('./pages/sales.js')).renderSalesPage(app);
-        break;
-      case 'tarhil':
-        (await import('./pages/tarhil.js')).renderTarhilPage(app);
-        break;
-      case 'customers':
-        (await import('./pages/customers.js')).renderCustomersPage(app);
-        break;
-      case 'suppliers':
-        (await import('./pages/suppliers.js')).renderSuppliersPage(app);
-        break;
-      case 'market_shops':
-        (await import('./pages/market_shops.js')).renderShopsPage(app);
-        break;
-      case 'khazna':
-        (await import('./pages/khazna.js')).renderKhaznaPage(app);
-        break;
-      case 'financial':
-        (await import('./pages/financial.js')).renderFinancialPage(app);
-        break;
-      case 'partners':
-        (await import('./pages/partners.js')).renderPartnersPage(app);
-        break;
-      case 'employees':
-        (await import('./pages/employees.js')).renderEmployeesPage(app);
-        break;
-      case 'audit': {
-        const { renderAuditPage } = await import('./pages/audit.js');
-        await renderAuditPage(app);
-        break;
-      }
-      case 'crates':
-        (await import('./pages/cartes.js')).renderCratesPage(app); // ✅ تم تغيير الاسم هنا أيضاً
-        break;
-      case 'reconciliation':
-        (await import('./pages/reconciliation_page.js')).renderReconciliationPage(app);
-        break;
-      default:
-        app.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">🔍</div>
-            <div class="empty-title">الصفحة غير موجودة</div>
-          </div>`;
-    }
-  } catch (err) {
-    console.error('[Page Error]', err);
-    app.innerHTML = `
-      <div class="card" style="color:var(--c-danger)">
-        ⚠️ خطأ في تحميل الصفحة<br>${err.message}
-      </div>`;
-  }
-
-  app.classList.add('fade-in');
-  document.querySelectorAll('[data-nav]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.nav === route);
-  });
-  window._currentRoute = route;
-  applyRBAC();
-}
-
-/* ───────────────────────── NAVIGATION ───────────────────────── */
-window.navigate = function(route) {
-  if (window._currentRoute === route) return;
-  history.pushState({ route }, '', '#' + route);
-  loadPage(route);
-};
-
-window.addEventListener('popstate', (e) => {
-  loadPage(e.state?.route || 'dashboard');
-});
-
-/* ───────────────────────── ROLE ───────────────────────── */
-async function loadEmployeeRole(userId) {
-  try {
-    const { data } = await supabase
-      .from('employees')
-      .select('role, active')
-      .eq('user_id', userId)
-      .eq('active', true)
-      .single();
-    window._currentUserRole = data?.role || 'admin';
-    window._employeeActive = !!data;
-  } catch {
-    window._currentUserRole = 'admin';
-    window._employeeActive = false;
-  }
-}
-
-window.canAccess = function(feature) {
-  const permissions = {
-    admin: ['create','edit','delete','view_sensitive','manage_employees','manage_shops','manage_partners'],
-    cashier: ['create','view_sensitive'],
-    worker: [],
+  // Lazy load للصفحات
+  const pages = {
+    dashboard: './pages/dashboard.js',
+    customers: './pages/customers.js',
+    suppliers: './pages/suppliers.js',
+    invoices: './pages/invoices.js',
+    sales: './pages/sales.js',
+    tarhil: './pages/tarhil.js',
+    market_shops: './pages/market_shops.js',
+    khazna: './pages/khazna.js',
+    financial: './pages/financial.js',
+    partners: './pages/partners.js',
+    employees: './pages/employees.js',
+    crates: './pages/cartes.js',   // اسم ملفك الحالي
+    reconciliation: './pages/reconciliation_page.js',
+    audit: './pages/audit.js'
   };
-  return (permissions[window._currentUserRole] || []).includes(feature);
-};
 
-/* ───────────────────────── RBAC ───────────────────────── */
-function applyRBAC() {
-  document.querySelectorAll('[data-permission]').forEach(el => {
-    if (!window.canAccess(el.dataset.permission)) {
-      el.style.display = 'none';
-    }
-  });
-}
-
-/* ───────────────────────── INIT APP ───────────────────────── */
-function initApp() {
-  document.querySelectorAll('[data-nav]').forEach(btn => {
-    btn.onclick = () => {
-      const route = btn.dataset.nav;
-      navigate(route);
-      document.getElementById('sidebar')?.classList.remove('open');
-    };
-  });
-
-  const hash = window.location.hash.replace('#', '') || 'dashboard';
-  const validRoutes = Object.keys(PAGE_TITLES);
-  const startRoute = validRoutes.includes(hash) ? hash : 'dashboard';
-  history.replaceState({ route: startRoute }, '', '#' + startRoute);
-  loadPage(startRoute);
-
-  /* Network Indicator */
-  function updateNetStatus() {
-    const el = document.getElementById('net-status');
-    if (!el) return;
-    el.textContent = navigator.onLine ? '🟢' : '🔴';
+  if (!pages[route]) {
+    app.innerHTML = '<p>صفحة غير معروفة</p>';
+    return;
   }
-  window.addEventListener('online', updateNetStatus);
-  window.addEventListener('offline', updateNetStatus);
-  updateNetStatus();
 
-  /* RBAC watcher */
-  const observer = new MutationObserver(() => applyRBAC());
-  observer.observe(document.getElementById('app'), { childList: true, subtree: true });
-      }
+  app.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  if (title) {
+    const titles = {
+      dashboard:'الرئيسية', customers:'العملاء', suppliers:'الموردين', invoices:'الفواتير',
+      sales:'المبيعات', tarhil:'الترحيلات', market_shops:'محلات السوق', khazna:'الخزنة',
+      financial:'المركز المالي', partners:'الشركاء', employees:'الموظفين', crates:'العدايات والبرانيك',
+      reconciliation:'تسوية الحسابات', audit:'سجل العمليات'
+    };
+    title.textContent = titles[route] || route;
+  }
+
+  import(pages[route])
+    .then(mod => {
+      const func = Object.values(mod)[0]; // أول تصدير
+      if (typeof func === 'function') func(app);
+    })
+    .catch(err => {
+      app.innerHTML = `<div class="card">خطأ: ${err.message}</div>`;
+    });
+};
