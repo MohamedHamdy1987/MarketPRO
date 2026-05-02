@@ -59,11 +59,20 @@ window.navigate = function(route) {
     const user = await ensureUser();
     if (!user) { window.location.href = 'index.html'; return; }
 
-    // ربط الأزرار
+    // ✅ ربط زر الهامبرغر بالشريط الجانبي
+    const hamburger = document.getElementById('hamburger');
+    const sidebar = document.getElementById('sidebar');
+    if (hamburger && sidebar) {
+      hamburger.onclick = () => {
+        sidebar.classList.toggle('open');
+      };
+    }
+
+    // ربط أزرار القائمة (مع إغلاق الشريط الجانبي بعد النقر)
     document.querySelectorAll('[data-nav]').forEach(btn => {
       btn.onclick = () => {
         navigate(btn.dataset.nav);
-        document.getElementById('sidebar')?.classList.remove('open');
+        if (sidebar) sidebar.classList.remove('open');
       };
     });
 
