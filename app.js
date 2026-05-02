@@ -1,64 +1,51 @@
-// تحميل الأدوات الأساسية أولاً
-let ensureUser;
-try {
-  const dataModule = await import('./data.js');
-  ensureUser = dataModule.ensureUser;
-} catch (e) {
-  alert('فشل تحميل البيانات الأساسية: ' + e.message);
-  throw e;
-}
+import { ensureUser } from './data.js';
 
-// التأكد من تسجيل الدخول
+import { renderDashboard } from './dashboard.js';
+import { renderCustomersPage } from './customers.js';
+import { renderSuppliersPage } from './suppliers.js';
+import { renderInvoicesPage } from './invoices.js';
+import { renderSalesPage } from './sales.js';
+import { renderTarhilPage } from './tarhil.js';
+import { renderShopsPage } from './market_shops.js';
+import { renderKhaznaPage } from './khazna.js';
+import { renderFinancialPage } from './financial.js';
+import { renderPartnersPage } from './partners.js';
+import { renderEmployeesPage } from './employees.js';
+import { renderCratesPage } from './cartes.js';  // اسم ملفك الحقيقي
+import { renderReconciliationPage } from './reconciliation_page.js';
+import { renderAuditPage } from './audit.js';
+
+const pages = {
+  dashboard: renderDashboard,
+  customers: renderCustomersPage,
+  suppliers: renderSuppliersPage,
+  invoices: renderInvoicesPage,
+  sales: renderSalesPage,
+  tarhil: renderTarhilPage,
+  market_shops: renderShopsPage,
+  khazna: renderKhaznaPage,
+  financial: renderFinancialPage,
+  partners: renderPartnersPage,
+  employees: renderEmployeesPage,
+  crates: renderCratesPage,
+  reconciliation: renderReconciliationPage,
+  audit: renderAuditPage
+};
+
+const titles = {
+  dashboard: 'الرئيسية', customers: 'العملاء', suppliers: 'الموردين',
+  invoices: 'الفواتير', sales: 'المبيعات', tarhil: 'الترحيلات',
+  market_shops: 'محلات السوق', khazna: 'الخزنة',
+  financial: 'المركز المالي', partners: 'الشركاء',
+  employees: 'الموظفين', crates: 'العدايات والبرانيك',
+  reconciliation: 'تسوية الحسابات', audit: 'سجل العمليات'
+};
+
 (async () => {
   try {
     const user = await ensureUser();
-    if (!user) {
-      window.location.href = 'index.html';
-      return;
-    }
+    if (!user) { window.location.href = 'index.html'; return; }
 
-    // قائمة الصفحات
-    window.navigate = async function(route) {
-      const app = document.getElementById('app');
-      if (!app) return;
-      app.innerHTML = '<div class="skeleton skeleton-card"></div>';
-
-      if (route === 'test') {
-        app.innerHTML = '<div class="card"><h2>✅ الصفحة التجريبية تعمل!</h2><p>التطبيق يعمل، المشكلة في صفحة dashboard.</p></div>';
-        return;
-      }
-
-      const PAGE_MAP = {
-        dashboard: './pages/dashboard.js',
-        customers: './pages/customers.js',
-        suppliers: './pages/suppliers.js',
-        invoices: './pages/invoices.js',
-        sales: './pages/sales.js',
-        tarhil: './pages/tarhil.js',
-        market_shops: './pages/market_shops.js',
-        khazna: './pages/khazna.js',
-        financial: './pages/financial.js',
-        partners: './pages/partners.js',
-        employees: './pages/employees.js',
-        crates: './pages/cartes.js',
-        reconciliation: './pages/reconciliation_page.js',
-        audit: './pages/audit.js'
-      };
-
-      const modulePath = PAGE_MAP[route];
-      if (!modulePath) { app.innerHTML = '<div class="card">صفحة غير معروفة</div>'; return; }
-
-      try {
-        const module = await import(modulePath);
-        const func = Object.values(module).find(v => typeof v === 'function');
-        if (!func) throw new Error('دالة التحميل مفقودة');
-        await func(app);
-      } catch (e) {
-        app.innerHTML = `<div class="card" style="color:red">❌ خطأ: ${e.message}</div>`;
-      }
-    };
-
-    // تجهيز أزرار القائمة
     document.querySelectorAll('[data-nav]').forEach(btn => {
       btn.onclick = () => {
         navigate(btn.dataset.nav);
@@ -66,10 +53,18 @@ try {
       };
     });
 
-    // 🟢 نبدأ بصفحة الاختبار، وليس dashboard
-    navigate('test');
-
+    navigate('dashboard');
   } catch (err) {
     document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;color:red;">خطأ: ' + err.message + '</h1>';
   }
 })();
+
+window.navigate = function(route) {
+  const app = document.getElementById('app');
+  const title = document.getElementById('page-title');
+  if (!app || !pages[route]) return;
+
+  title.textContent = titles[route] || route;
+  app.innerHTML = '<div class="skeleton skeleton-card"></div>';
+  pages[route](app);
+};
