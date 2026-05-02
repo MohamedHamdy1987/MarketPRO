@@ -1,7 +1,121 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar" dir="rtl">
 <head>
-  <meta http-equiv="refresh" content="0; url=app.html" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Pro – تسجيل الدخول</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#16a34a">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      font-family:'Cairo',sans-serif;
+      background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+      display:flex;align-items:center;justify-content:center;
+      min-height:100vh;direction:rtl;
+    }
+    .card{
+      background:#fff;padding:30px;border-radius:20px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.08);
+      width:100%;max-width:380px;
+    }
+    h2{text-align:center;margin-bottom:20px;color:#15803d;}
+    label{display:block;font-size:13px;margin:10px 0 4px;color:#475569;}
+    input{
+      width:100%;padding:10px;border:1px solid #bbf7d0;
+      border-radius:10px;font-family:'Cairo';font-size:14px;
+    }
+    .btn{
+      width:100%;padding:12px;background:#16a34a;color:#fff;
+      border:none;border-radius:10px;font-family:'Cairo';
+      font-size:16px;font-weight:700;margin-top:16px;cursor:pointer;
+    }
+    .btn:hover{background:#15803d;}
+    .error{color:#dc2626;font-size:13px;margin-top:8px;display:none;}
+    .link{text-align:center;margin-top:16px;font-size:13px;color:#475569;}
+    .link a{color:#16a34a;cursor:pointer;font-weight:700;}
+  </style>
 </head>
-<body></body>
+<body>
+  <div class="card">
+    <h2>🍎 Market Pro</h2>
+    <div id="loginForm">
+      <label for="email">البريد الإلكتروني</label>
+      <input type="email" id="email" placeholder="example@mail.com" autocomplete="email">
+      <label for="password">كلمة المرور</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      <div class="error" id="loginError"></div>
+      <button class="btn" onclick="login()">تسجيل الدخول</button>
+      <div class="link">
+        ليس لديك حساب؟ <a onclick="showSignup()">إنشاء حساب</a>
+      </div>
+    </div>
+    <div id="signupForm" style="display:none;">
+      <label for="business">اسم المنشأة</label>
+      <input type="text" id="business" placeholder="مثال: سوق الخير">
+      <label for="signupEmail">البريد الإلكتروني</label>
+      <input type="email" id="signupEmail" placeholder="example@mail.com">
+      <label for="signupPassword">كلمة المرور</label>
+      <input type="password" id="signupPassword" placeholder="8 أحرف على الأقل">
+      <label for="confirmPassword">تأكيد كلمة المرور</label>
+      <input type="password" id="confirmPassword" placeholder="أعد كتابة كلمة المرور">
+      <div class="error" id="signupError"></div>
+      <button class="btn" onclick="signup()">إنشاء حساب</button>
+      <div class="link">
+        لديك حساب؟ <a onclick="showLogin()">تسجيل الدخول</a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './data.js';
+
+    window.showSignup = () => {
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('signupForm').style.display = 'block';
+      document.getElementById('loginError').style.display = 'none';
+    };
+    window.showLogin = () => {
+      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'block';
+      document.getElementById('signupError').style.display = 'none';
+    };
+
+    window.login = async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errEl = document.getElementById('loginError');
+      if(!email||!password){errEl.textContent='أدخل البريد وكلمة المرور';errEl.style.display='block';return;}
+      try{
+        const {error} = await supabase.auth.signInWithPassword({email,password});
+        if(error) throw error;
+        window.location.href = 'app.html';
+      }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
+    };
+
+    window.signup = async () => {
+      const business = document.getElementById('business').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const password = document.getElementById('signupPassword').value;
+      const confirm = document.getElementById('confirmPassword').value;
+      const errEl = document.getElementById('signupError');
+      if(!business){errEl.textContent='أدخل اسم المنشأة';errEl.style.display='block';return;}
+      if(password.length<8){errEl.textContent='كلمة المرور 8 أحرف على الأقل';errEl.style.display='block';return;}
+      if(password!==confirm){errEl.textContent='كلمتا المرور غير متطابقتين';errEl.style.display='block';return;}
+      try{
+        const {data,error} = await supabase.auth.signUp({email,password,options:{data:{business_name:business}}});
+        if(error) throw error;
+        if(data.session) window.location.href = 'app.html';
+        else errEl.textContent='تم إنشاء الحساب. تحقق من بريدك الإلكتروني.';errEl.style.display='block';
+      }catch(e){errEl.textContent=e.message;errEl.style.display='block';}
+    };
+
+    // إذا كان مسجلاً بالفعل، انتقل مباشرة
+    (async ()=>{
+      const {data:{user}} = await supabase.auth.getUser();
+      if(user) window.location.href = 'app.html';
+    })();
+  </script>
+</body>
 </html>
