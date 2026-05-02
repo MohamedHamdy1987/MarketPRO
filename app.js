@@ -1,22 +1,28 @@
-alert('✅ تم تحميل app.js بنجاح');
+// اختبار الاتصال: هل يعمل app.js من الأساس؟
+alert('🚀 تم تشغيل app.js بنجاح');
 
-// محاولة يدوية لتحميل الصفحات
 import { ensureUser } from './data.js';
 import { renderDashboard } from './pages/dashboard.js';
 
 (async () => {
   try {
-    document.body.innerHTML = '<h1 style="text-align:center;margin-top:40px;">جاري التحميل...</h1>';
     const user = await ensureUser();
-    if (!user) { window.location.href = 'index.html'; return; }
-
-    const app = document.getElementById('app');
-    if (!app) {
-      document.body.innerHTML += '<p>العنصر app غير موجود</p>';
+    if (!user) {
+      document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;">❌ لم يتم تسجيل الدخول</h1>';
       return;
     }
-    renderDashboard(app);
-  } catch (e) {
-    document.body.innerHTML = '<h1 style="color:red;text-align:center;margin-top:40px;">خطأ: ' + e.message + '</h1>';
+
+    const appDiv = document.getElementById('app');
+    if (!appDiv) {
+      document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;">❌ عنصر app غير موجود في HTML</h1>';
+      return;
+    }
+
+    // المحاولة النهائية
+    document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;">⏳ جاري تحميل لوحة التحكم...</h1>';
+    await renderDashboard(appDiv);
+    
+  } catch (error) {
+    document.body.innerHTML = '<h1 style="color:red;text-align:center;margin-top:50px;">❌ فشل التحميل: ' + error.message + '</h1>';
   }
 })();
