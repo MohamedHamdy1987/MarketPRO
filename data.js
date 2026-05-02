@@ -6,7 +6,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const supabaseUrl = 'https://seadlwxlffbgxtxwhuis.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlYWRsd3hsZmZiZ3h0eHdodWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MjEzNTYsImV4cCI6MjA5MzA5NzM1Nn0._CtO7o-ruSpAq-w7Lri3rdbG4Zin6rI8nzFDsinR6Co'; // حط مفتاحك الحقيقي هنا
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // استبدل بالمفتاح الحقيقي
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
@@ -189,28 +189,6 @@ export async function addAuditLog(action, details = {}) {
 }
 
 /* ───────────────────────────────────────────── */
-/* PIN SYSTEM (LOCAL SAFE VERSION) */
-/* ───────────────────────────────────────────── */
-
-export async function verifyPIN(pin) {
-  try {
-    const savedPin = localStorage.getItem("app_pin") || "1234";
-    return String(pin) === String(savedPin);
-  } catch (e) {
-    console.error("[verifyPIN]:", e);
-    return false;
-  }
-}
-
-export function setLocalPIN(pin) {
-  try {
-    localStorage.setItem("app_pin", String(pin));
-  } catch (e) {
-    console.error("[setLocalPIN]:", e);
-  }
-}
-
-/* ───────────────────────────────────────────── */
 /* CRATES */
 /* ───────────────────────────────────────────── */
 
@@ -247,12 +225,13 @@ export async function getBulkCustomerCrates(customerIds = []) {
 export async function getBusinessName() {
   const user = await getCurrentUser();
   return user?.user_metadata?.business_name || '';
+}
+
 /* ─────────────────────────────────────────────
-   ATOMIC TRANSACTION (for safe multi-table ops)
+   ATOMIC TRANSACTION (للعمليات متعددة الجداول)
    ───────────────────────────────────────────── */
 export async function atomicTransaction(steps) {
   const user = await ensureUser();
-
   for (const step of steps) {
     try {
       if (step.type === 'insert') {
@@ -275,7 +254,7 @@ export async function atomicTransaction(steps) {
 }
 
 /* ─────────────────────────────────────────────
-   CRATE SUMMARIES (for crates page)
+   CRATE SUMMARIES (تجهيزات صفحة العدايات)
    ───────────────────────────────────────────── */
 export async function getAllCustomerCrateSummaries() {
   const user = await ensureUser();
@@ -294,5 +273,3 @@ export async function getAllSupplierCrateSummaries() {
     .eq('user_id', user.id);
   return data || [];
 }
-}
-
