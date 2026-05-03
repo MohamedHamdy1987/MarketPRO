@@ -1,4 +1,5 @@
 import {
+    supabase, // 🔥 مهم جدًا
   ensureUser,
   verifyPIN,
   getTreasuriesForUser,
@@ -65,7 +66,7 @@ export async function renderKhaznaPage(app) {
       ${treasuries.map(t => {
         const isFM = isFinanceManager(t);
         return `
-          <div class="card">
+          <div class="card treasury-card" onclick="openTreasuryDetails('${t.id}')">
             <div style="font-weight:700;margin-bottom:10px;">
               ${t.name || t.treasury_type}
             </div>
@@ -229,4 +230,47 @@ window.khazna_transfer = async function () {
       navigate("khazna");
     }
   });
+};
+window.openTreasuryDetails = async function (treasuryId) {
+  const user = await ensureUser();
+
+  const { data: treasury } = await supabase
+    .from("treasury_accounts")
+    .select("*")
+    .eq("id", treasuryId)
+    .single();
+
+  const { data: transactions } = await supabase
+    .from("treasury_transactions")
+    .select("*")
+    .eq("treasury_id", treasuryId)
+    .order("created_at", { ascending: false });
+
+  const app = document.getElementById("app");
+
+  app.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">🏦 ${treasury.name}</div>
+      <button class="btn" onclick="navigate('khazna')">⬅ رجوع</button>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div>💵 نقدي: ${formatCurrency(treasury.cash_balance || 0)}</div>
+      <div>📱 فودافون: ${formatCurrency(treasury.vodafone_balance || 0)}</div>
+      <div>🏦 بنك: ${formatCurrency(treasury.bank_balance || 0)}</div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div style="font-weight:700;margin-bottom:10px;">📋 العمليات</div>
+      ${
+        transactions?.length
+          ? transactions.map(tx => `
+            <div style="padding:8px;border-bottom:1px solid #eee;">
+              ${tx.type} - ${tx.channel} - ${formatCurrency(tx.amount)}
+            </div>
+          `).join("")
+          : `<div style="text-align:center;color:#888;">لا توجد عمليات</div>`
+      }
+    </div>
+  `;
 };
