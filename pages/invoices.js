@@ -594,3 +594,51 @@ window.printSettlement=function(){
     </html>`);
   win.document.close();
 };
+function renderProductsTable(products, isDraft){
+  if(!products.length){
+    return `
+      <div style="padding:20px;text-align:center;color:var(--c-text-muted);">
+        لا توجد أصناف
+      </div>
+      ${isDraft ? `
+        <div style="padding:10px;">
+          <button class="btn" onclick="openAddProduct('${products[0]?.invoice_id || ''}')">
+            ➕ إضافة صنف
+          </button>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  return `
+    <div style="padding:10px;">
+      ${products.map(p=>`
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          padding:10px;
+          border-bottom:1px solid var(--c-border);
+        ">
+          <div>
+            <div style="font-weight:700;">${p.name}</div>
+            <div style="font-size:12px;color:var(--c-text-muted);">
+              ${p.qty} ${p.unit || ''}
+            </div>
+          </div>
+          <div style="font-size:12px;">
+            مباع: ${p.sold || 0} <br>
+            مرتجع: ${p.returned || 0}
+          </div>
+        </div>
+      `).join('')}
+
+      ${isDraft ? `
+        <div style="margin-top:10px;">
+          <button class="btn" onclick="openAddProduct('${products[0].invoice_id}')">
+            ➕ إضافة صنف
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
