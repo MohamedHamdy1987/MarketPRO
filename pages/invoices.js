@@ -124,10 +124,23 @@ window.openInvoice=async function(id){
 
     const app=document.getElementById('app');
 
-    const [
-      {data:invoice, error:invoiceError},
-      {data:products, error:productsError}
-    ]=await Promise.all([
+    const invRes = await supabase.from('invoices').select('*').eq('id',id).single();
+const prodRes = await supabase.from('invoice_products').select('*').eq('invoice_id',id);
+
+if(invRes.error){
+  console.error(invRes.error);
+  toast('خطأ في تحميل الفاتورة','error');
+  return;
+}
+
+if(prodRes.error){
+  console.error(prodRes.error);
+  toast('خطأ في تحميل الأصناف','error');
+  return;
+}
+
+const invoice = invRes.data;
+const products = prodRes.data;
       supabase.from('invoices').select('*').eq('id',id).single(),
       supabase.from('invoice_products').select('*').eq('invoice_id',id)
     ]);
