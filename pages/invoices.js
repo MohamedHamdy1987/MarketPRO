@@ -169,17 +169,54 @@ const products = prodRes.data;
       </div>
 
       <div class="card">
-        ${typeof renderProductsTable === 'function'
-          ? renderProductsTable(products||[],isDraft)
-          : '<div style="padding:20px;color:red;">❌ renderProductsTable مش موجودة</div>'
-        }
-      </div>`;
-
-  } catch(e){
-    console.error("openInvoice crash:", e);
-    toast('❌ حصل خطأ','error');
+        ${typeof renderProductsTable === function renderProductsTable(products, isDraft, invoiceId){
+  if(!products.length){
+    return `
+      <div style="padding:20px;text-align:center;color:var(--c-text-muted);">
+        لا توجد أصناف
+      </div>
+      ${isDraft ? `
+        <div style="padding:10px;">
+          <button class="btn" onclick="openAddProduct('${invoiceId}')">
+            ➕ إضافة صنف
+          </button>
+        </div>
+      ` : ''}
+    `;
   }
-};
+
+  return `
+    <div style="padding:10px;">
+      ${products.map(p=>`
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          padding:10px;
+          border-bottom:1px solid var(--c-border);
+        ">
+          <div>
+            <div style="font-weight:700;">${p.name}</div>
+            <div style="font-size:12px;color:var(--c-text-muted);">
+              ${p.qty} ${p.unit || ''}
+            </div>
+          </div>
+          <div style="font-size:12px;">
+            مباع: ${p.sold || 0} <br>
+            مرتجع: ${p.returned || 0}
+          </div>
+        </div>
+      `).join('')}
+
+      ${isDraft ? `
+        <div style="margin-top:10px;">
+          <button class="btn" onclick="openAddProduct('${invoiceId}')">
+            ➕ إضافة صنف
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
 /* ── Add Product (FIXED user_id) ───────────────────────── */
 window.openAddProduct=async function(invoiceId){
   const user=await ensureUser();
