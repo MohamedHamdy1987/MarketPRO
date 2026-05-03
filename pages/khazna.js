@@ -127,29 +127,53 @@ window.openTreasuryDetails = async function (treasuryId) {
 /* ───────── INCOME ───────── */
 
 window.khazna_income = async function (treasuryId) {
+    const { data: customers } = await supabase
+  .from("customers")
+  .select("id,name");
   inputModal({
     title: "➕ إضافة رصيد",
     fields: [
-      { id: "channel", label: "القناة", type: "select", options: [
-        { value: "cash", label: "نقدي" },
-        { value: "vodafone_cash", label: "فودافون" },
-        { value: "bank", label: "بنك" }
-      ], required: true },
-      { id: "amount", label: "المبلغ", type: "number", required: true }
+  {
+    id: "customer_id",
+    label: "العميل",
+    type: "select",
+    options: customers.map(c => ({
+      value: c.id,
+      label: c.name
+    })),
+    required: true
+  },
+  {
+    id: "channel",
+    label: "القناة",
+    type: "select",
+    options: [
+      { value: "cash", label: "نقدي" },
+      { value: "vodafone_cash", label: "فودافون" },
+      { value: "bank", label: "بنك" }
     ],
+    required: true
+  },
+  {
+    id: "amount",
+    label: "المبلغ",
+    type: "number",
+    required: true
+  }
+]
     onSubmit: async (vals) => {
 
       if (vals.amount <= 0) throw new Error("أدخل مبلغ صحيح");
 
       await requirePIN();
 
-      const res = await addTreasuryTransaction({
-        treasury_id: treasuryId,
-        type: "income",
-        channel: vals.channel,
-        amount: vals.amount
-      });
-
+     const res = await addTreasuryTransaction({
+  treasury_id: treasuryId,
+  type: "income",
+  channel: vals.channel,
+  amount: vals.amount,
+  customer_id: vals.customer_id
+});
       if (!res.success) throw new Error(res.error || "فشل العملية");
 
       toast("تمت الإضافة ✅");
