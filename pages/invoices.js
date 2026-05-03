@@ -119,42 +119,68 @@ window.openCreateInvoice=async function(){
 
 /* ── Invoice Detail ──────────────────────────────────────── */
 window.openInvoice=async function(id){
-  const app=document.getElementById('app');
+  try {
+    console.log("فتح فاتورة:", id); // 👈 مهم
 
-  const [
-    {data:invoice},
-    {data:products}
-  ]=await Promise.all([
-    supabase.from('invoices').select('*').eq('id',id).single(),
-    supabase.from('invoice_products').select('*').eq('invoice_id',id)
-  ]);
+    const app=document.getElementById('app');
 
-  const isDraft=invoice.status==='draft';
-  const isConfirmed=invoice.status==='confirmed';
-  const isClosed=invoice.status==='closed';
+    const [
+      {data:invoice, error:invoiceError},
+      {data:products, error:productsError}
+    ]=await Promise.all([
+      supabase.from('invoices').select('*').eq('id',id).single(),
+      supabase.from('invoice_products').select('*').eq('invoice_id',id)
+    ]);
 
-  /* ── NEW: render settlement view for closed invoices ── */
-  if(isClosed){
-    await renderClosedInvoice(app, invoice, products||[]);
-    return;
+    if(invoiceError){
+      console.error("invoice error:", invoiceError);
+      toast('❌ خطأ في تحميل الفاتورة','error');
+      return;
+    }
+
+    if(productsError){
+      console.error("products error:", productsError);
+      toast('❌ خطأ في تحميل الأصناف','error');
+      return;
+    }
+
+    if(!invoice){
+      toast('❌ الفاتورة غير موجودة','error');
+      return;
+    }
+
+    const isDraft=invoice.status==='draft';
+    const isConfirmed=invoice.status==='confirmed';
+    const isClosed=invoice.status==='closed';
+
+    if(isClosed){
+      await renderClosedInvoice(app, invoice, products||[]);
+      return;
+    }
+
+    app.innerHTML=`
+      <button class="btn btn-ghost btn-sm" onclick="navigate('invoices')">← رجوع</button>
+
+      <div class="page-header">
+        <div class="page-title">${invoice.supplier_name}</div>
+        <div class="page-actions">
+          ${isDraft?`<button class="btn" onclick="confirmInvoiceUI('${id}')">اعتماد</button>`:''}
+          ${isConfirmed?`<button class="btn btn-warning" onclick="openSupplierReturn('${id}')">رفع بضاعة</button>`:''}
+        </div>
+      </div>
+
+      <div class="card">
+        ${typeof renderProductsTable === 'function'
+          ? renderProductsTable(products||[],isDraft)
+          : '<div style="padding:20px;color:red;">❌ renderProductsTable مش موجودة</div>'
+        }
+      </div>`;
+
+  } catch(e){
+    console.error("openInvoice crash:", e);
+    toast('❌ حصل خطأ','error');
   }
-
-  app.innerHTML=`
-  <button class="btn btn-ghost btn-sm" onclick="navigate('invoices')">← رجوع</button>
-
-  <div class="page-header">
-    <div class="page-title">${invoice.supplier_name}</div>
-    <div class="page-actions">
-      ${isDraft?`<button class="btn" onclick="confirmInvoiceUI('${id}')">اعتماد</button>`:''}
-      ${isConfirmed?`<button class="btn btn-warning" onclick="openSupplierReturn('${id}')">رفع بضاعة</button>`:''}
-    </div>
-  </div>
-
-  <div class="card">
-    ${renderProductsTable(products||[],isDraft)}
-  </div>`;
 };
-
 /* ── Add Product (FIXED user_id) ───────────────────────── */
 window.openAddProduct=async function(invoiceId){
   const user=await ensureUser();
