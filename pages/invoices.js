@@ -141,22 +141,8 @@ if(prodRes.error){
 
 const invoice = invRes.data;
 const products = prodRes.data;
-      supabase.from('invoices').select('*').eq('id',id).single(),
-      supabase.from('invoice_products').select('*').eq('invoice_id',id)
-    ]);
 
-    if(invoiceError){
-      console.error("invoice error:", invoiceError);
-      toast('❌ خطأ في تحميل الفاتورة','error');
-      return;
-    }
-
-    if(productsError){
-      console.error("products error:", productsError);
-      toast('❌ خطأ في تحميل الأصناف','error');
-      return;
-    }
-
+    
     if(!invoice){
       toast('❌ الفاتورة غير موجودة','error');
       return;
