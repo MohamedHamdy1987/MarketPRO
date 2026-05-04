@@ -196,15 +196,26 @@ window.openAddProduct=async function(invoiceId){
     ],
     submitLabel:'حفظ',
     onSubmit:async(vals)=>{
-      await dbInsert('invoice_products',{
-        invoice_id:invoiceId,
-        user_id:user.id, // ✅ FIX RLS
-        name:vals.name,
-        qty:Number(vals.qty),
-        unit:vals.unit||null,
-        sold:0,
-        returned:0
-      });
+      const { data, error } = await supabase
+        .from('invoice_products')
+        .insert([{
+          invoice_id: invoiceId,
+          user_id: user.id,
+          name: vals.name,
+          qty: Number(vals.qty),
+          unit: vals.unit || null,
+          sold: 0,
+          returned: 0
+        }])
+        .select();
+
+      if (error) {
+        console.error("INSERT ERROR:", error);
+        toast('❌ فشل إضافة الصنف','error');
+        return;
+      }
+
+      console.log("INSERT SUCCESS:", data);
 
       closeModal();
       toast('تمت الإضافة ✅','success');
@@ -670,4 +681,4 @@ function renderProductsTable(products, isDraft, invoiceId){
       ` : ''}
     </div>
   `;
-}
+                    }
